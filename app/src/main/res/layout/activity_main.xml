@@ -4,22 +4,20 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.skopincev.videochangingdemoapp.MainActivity"
+    tools:context="com.skopincev.videochangingdemoapp.ui.MainActivity"
     android:background="@android:color/darker_gray">
 
-    <Button
-        android:id="@+id/btn_play_pause"
+    <FrameLayout
+        android:id="@+id/fl_video_container"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Play"
-        android:layout_centerInParent="true"/>
+        android:layout_height="wrap_content"/>
 
     <TextView
         android:id="@+id/tv_pitch_mark"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Pitch"
-        android:layout_below="@+id/btn_play_pause"
+        android:layout_below="@+id/fl_video_container"
         android:layout_centerHorizontal="true"/>
 
     <SeekBar

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/rl_video_layout"
+    android:layout_width="match_parent"
+    android:layout_height="200dp"
+    android:background="@android:color/background_dark"
+    tools:background="@android:color/background_dark">
+
+    <TextureView
+        android:id="@+id/txv_video_surface_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_centerInParent="true" />
+
+    <FrameLayout
+        android:id="@+id/fl_video_controller_anchor"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_alignParentBottom="true" />
+
+</RelativeLayout>

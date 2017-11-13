@@ -75,23 +75,23 @@ void NDKAudioPlayer::onTempoChanged(double tempo) {
 
 NDKAudioPlayer *audioPlayer;
 
-extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_MainActivity_initAudioPlayer(JNIEnv *jniEnv, jobject __unused obj, jint samplerate, jint buffersize, jstring apkPath, jint audioFileOffset, jint audioFileLength) {
-    const char *path = jniEnv->GetStringUTFChars(apkPath, JNI_FALSE);
+extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_initAudioPlayer(JNIEnv *jniEnv, jobject __unused obj, jint samplerate, jint buffersize, jstring audioFilePath, jint audioFileOffset, jint audioFileLength) {
+    const char *path = jniEnv->GetStringUTFChars(audioFilePath, JNI_FALSE);
     audioPlayer = new NDKAudioPlayer((unsigned int)samplerate, (unsigned int)buffersize, path, audioFileOffset, audioFileLength);
-    jniEnv->ReleaseStringUTFChars(apkPath, path);
+    jniEnv->ReleaseStringUTFChars(audioFilePath, path);
 
     javaEnvironment = jniEnv;
 }
 
-extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_MainActivity_onPlayPause(JNIEnv *jniEnv, jobject instance, jboolean play) {
+extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_onPlayPause(JNIEnv *jniEnv, jobject instance, jboolean play) {
     audioPlayer->onPlayPause(play);
 }
 
-extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_MainActivity_onCentsChanged(JNIEnv *jniEnv, jobject instance, jint cents) {
+extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_onCentsChanged(JNIEnv *jniEnv, jobject instance, jint cents) {
     audioPlayer->onCentsChanged((int)cents);
 }
 
-extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_MainActivity_onTempoChanged(JNIEnv *jniEnv, jobject instance, jdouble tempo) {
+extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_onTempoChanged(JNIEnv *jniEnv, jobject instance, jdouble tempo) {
     audioPlayer->onTempoChanged((double)tempo);
 }
 
