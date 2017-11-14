@@ -11,6 +11,7 @@
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_AndroidConfiguration.h>
 #include <string.h>
+#include <android/log.h>
 
 static JNIEnv *javaEnvironment;
 
@@ -73,7 +74,16 @@ void NDKAudioPlayer::onTempoChanged(double tempo) {
     player->setTempo(tempo, true);
 }
 
-NDKAudioPlayer *audioPlayer;
+void NDKAudioPlayer::onPositionChanged(double msec) {
+    player->setPosition(msec, false, false);
+    char msecString[64];
+    snprintf(msecString, sizeof(msecString), "%g", msec);
+    char message[64] = "Audio position: ";
+    strcat(message, msecString);
+    __android_log_write(ANDROID_LOG_DEBUG, "Playing position", message);
+}
+
+static NDKAudioPlayer *audioPlayer;
 
 extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_initAudioPlayer(JNIEnv *jniEnv, jobject __unused obj, jint samplerate, jint buffersize, jstring audioFilePath, jint audioFileOffset, jint audioFileLength) {
     const char *path = jniEnv->GetStringUTFChars(audioFilePath, JNI_FALSE);
@@ -95,3 +105,6 @@ extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivit
     audioPlayer->onTempoChanged((double)tempo);
 }
 
+extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_onPositionChanged(JNIEnv *jniEnv, jobject instance, jdouble msec) {
+    audioPlayer->onPositionChanged((double)msec);
+}

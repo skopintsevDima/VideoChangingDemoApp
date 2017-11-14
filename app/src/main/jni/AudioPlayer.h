@@ -25,6 +25,7 @@ public:
     void onPlayPause(bool play);
     void onCentsChanged(int cents);
     void onTempoChanged(double tempo);
+    void onPositionChanged(double msec);
 
 private:
 

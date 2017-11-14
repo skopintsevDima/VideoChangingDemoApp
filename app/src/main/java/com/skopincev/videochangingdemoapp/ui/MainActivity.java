@@ -8,19 +8,27 @@ import android.net.Uri;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.TextureView;
+import android.view.View;
 import android.widget.FrameLayout;
+import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import com.github.hiteshsondhi88.libffmpeg.ExecuteBinaryResponseHandler;
+import com.github.hiteshsondhi88.libffmpeg.FFmpeg;
+import com.github.hiteshsondhi88.libffmpeg.LoadBinaryResponseHandler;
+import com.github.hiteshsondhi88.libffmpeg.exceptions.FFmpegCommandAlreadyRunningException;
+import com.github.hiteshsondhi88.libffmpeg.exceptions.FFmpegNotSupportedException;
 import com.skopincev.videochangingdemoapp.R;
 import com.skopincev.videochangingdemoapp.media_processing.AudioExtractor;
+import com.skopincev.videochangingdemoapp.media_processing.OnPlaybackStateChangeListener;
 
 import java.io.File;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements OnPlaybackStateChangeListener {
 
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final int REQUEST_TAKE_GALLERY_VIDEO = 1;
@@ -36,6 +44,9 @@ public class MainActivity extends AppCompatActivity {
     private native void onPlayPause(boolean play);
     private native void onCentsChanged(int cents);
     private native void onTempoChanged(double tempo);
+    private native void onPositionChanged(double msec);
+
+    private FFmpeg ffmpeg = null;
 
     private SeekBar sbPitchShift;
     private SeekBar sbSpeed;
@@ -43,10 +54,12 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvCents;
     private FrameLayout flVideo;
     private VideoContentView videoView;
+    private ProgressBar pbExtracting;
 
-    private boolean playing;
     private String samplerateString = null;
     private String buffersizeString = null;
+    private File currentVideoFile = null;
+    private File currentAudioFile = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,21 +70,66 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void init() {
+        initSuperpowered();
+
+        initFFMpeg();
+
+        initUI();
+    }
+
+    private void initSuperpowered() {
         // Get the device's sample rate and buffer size to enable low-latency Android audio output, if available.
         AudioManager audioManager = (AudioManager) this.getSystemService(Context.AUDIO_SERVICE);
         samplerateString = audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE);
         buffersizeString = audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER);
         if (samplerateString == null) samplerateString = "44100";
         if (buffersizeString == null) buffersizeString = "512";
+    }
 
-        initUI();
+    private void initFFMpeg() {
+        ffmpeg = FFmpeg.getInstance(getApplicationContext());
+        try {
+            ffmpeg.loadBinary(new LoadBinaryResponseHandler() {
+
+                @Override
+                public void onStart() {}
+
+                @Override
+                public void onFailure() {}
+
+                @Override
+                public void onSuccess() {}
+
+                @Override
+                public void onFinish() {}
+            });
+        } catch (FFmpegNotSupportedException e) {
+            Log.d(TAG, "initFFMpeg: Device doesn't support ffmpeg");
+        }
     }
 
     private void chooseVideoFile(){
+        deleteCurrentMediaFiles();
+
         Intent intent = new Intent();
         intent.setType("video/*");
         intent.setAction(Intent.ACTION_GET_CONTENT);
         startActivityForResult(Intent.createChooser(intent,"Select Video"), REQUEST_TAKE_GALLERY_VIDEO);
+    }
+
+    private void deleteCurrentMediaFiles() {
+        if (currentVideoFile != null && currentVideoFile.exists()){
+            Log.d(TAG, "deleteCurrentMediaFiles: Current video file " + (currentVideoFile.delete() ? "deleted" : "not deleted"));
+        }
+        if (currentAudioFile != null && currentAudioFile.exists()){
+            Log.d(TAG, "deleteCurrentMediaFiles: Current audio file " + (currentAudioFile.delete() ? "deleted" : "not deleted"));
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        deleteCurrentMediaFiles();
     }
 
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -82,26 +140,40 @@ public class MainActivity extends AppCompatActivity {
                 // MEDIA GALLERY
                 String selectedVideoPath = getPath(selectedVideoUri);
                 if (selectedVideoPath != null) {
-                    //Extracting audio and configuring Superpowered audio player
+                    //Extracting audio and video
                     String[] temp = selectedVideoPath.split("/");
                     String videoFileName = temp[temp.length - 1].split("\\.")[0];
+                    String videoFileFormat = temp[temp.length - 1].split("\\.")[1];
+
+                    setExtractingMode(true);
 
                     String extractedAudioFileName = videoFileName + "_audio";
                     String extractedAudioFilePath = getExternalFilesDir(null).getAbsolutePath() + "/" + extractedAudioFileName + ".aac";
-                    extractAudioFromVideo(selectedVideoPath, extractedAudioFilePath);
+                    extractAudio(selectedVideoPath, extractedAudioFilePath);
 
-                    File audioFile = new File(extractedAudioFilePath);
-                    if (audioFile.exists()){
-                        int audioFileOffset = 0, audioFileLength = (int)audioFile.length();
+                    String extractedVideoFileName = videoFileName + "_video";
+                    String extractedVideoFilePath = getExternalFilesDir(null).getAbsolutePath() + "/" + extractedVideoFileName + "." + videoFileFormat;
+                    extractVideo(selectedVideoPath, extractedVideoFilePath);
+
+                    currentAudioFile = new File(extractedAudioFilePath);
+                    if (currentAudioFile.exists()){
+                        //Configuring Superpowered audio player
+                        int audioFileOffset = 0, audioFileLength = (int)currentAudioFile.length();
                         // Arguments: path to the audio file, offset and length of the audio file, sample rate, audio buffer size.
                         initAudioPlayer(Integer.parseInt(samplerateString), Integer.parseInt(buffersizeString), extractedAudioFilePath, audioFileOffset, audioFileLength);
                     }
-
-                    //Configuring video player
-                    videoView.initMediaPlayer(selectedVideoPath);
                 }
             }
         }
+    }
+
+    private void setExtractingMode(boolean mode) {
+        if (mode){
+            pbExtracting.setVisibility(View.VISIBLE);
+        } else {
+            pbExtracting.setVisibility(View.INVISIBLE);
+        }
+        pbExtracting.setEnabled(mode);
     }
 
     public String getPath(Uri uri) {
@@ -118,16 +190,48 @@ public class MainActivity extends AppCompatActivity {
             return null;
     }
 
-    private void extractAudioFromVideo(String videoFilePath, String extractedAudioFilePath){
+    private void extractAudio(String videoFilePath, String extractedAudioFilePath){
         AudioExtractor audioExtractor = new AudioExtractor();
         audioExtractor.extract(videoFilePath, extractedAudioFilePath);
+    }
+
+    private void extractVideo(final String videoFilePath, final String extractedVideoFilePath){
+        String[] commands = {"-i", videoFilePath, "-vcodec", "copy", "-an", extractedVideoFilePath};
+        try {
+            ffmpeg.execute(commands, new ExecuteBinaryResponseHandler(){
+                @Override
+                public void onStart() {
+                    super.onStart();
+                    Log.d(TAG, "extractVideo: Video extracting STARTED\n");
+                }
+
+                @Override
+                public void onSuccess(String message) {
+                    super.onSuccess(message);
+                    Log.d(TAG, "extractVideo: Video extracting SUCCEED\n" + message);
+                    //Configuring video player
+                    currentVideoFile = new File(extractedVideoFilePath);
+                    if (currentVideoFile.exists()){
+                        setExtractingMode(false);
+                        videoView.clear();
+                        videoView.initMediaPlayer(extractedVideoFilePath, MainActivity.this);
+                    }
+                }
+
+                @Override
+                public void onFailure(String message) {
+                    super.onFailure(message);
+                    Log.d(TAG, "extractVideo: Video extracting FAILED\n" + message);
+                }
+            });
+        } catch (FFmpegCommandAlreadyRunningException e) {
+            Log.d(TAG, "extractVideo: Video extracting FAILED");
+        }
     }
 
     private void initUI() {
         tvCents = findViewById(R.id.tv_cents);
         tvSpeed = findViewById(R.id.tv_speed);
-
-        // TODO: 13.11.2017 implement audio playing
 
         sbPitchShift = findViewById(R.id.sb_pitch_shift);
         sbPitchShift.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -164,6 +268,8 @@ public class MainActivity extends AppCompatActivity {
         flVideo = findViewById(R.id.fl_video_container);
         videoView = new VideoContentView(this);
         flVideo.addView(videoView);
+
+        pbExtracting = videoView.findViewById(R.id.pb_extracting);
     }
 
     @Override
@@ -183,5 +289,15 @@ public class MainActivity extends AppCompatActivity {
                 return false;
             }
         }
+    }
+
+    @Override
+    public void setPlayState(boolean play) {
+        onPlayPause(play);
+    }
+
+    @Override
+    public void setNewPositionState(double msec) {
+        onPositionChanged(msec);
     }
 }

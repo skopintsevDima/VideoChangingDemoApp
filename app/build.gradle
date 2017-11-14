@@ -10,7 +10,7 @@ android { // main settings for your application
 
     defaultConfig {
         applicationId "com.skopincev.videochangingdemoapp"
-        minSdkVersion 21
+        minSdkVersion 19
         targetSdkVersion 27
         versionCode 1
         versionName "1.0"
@@ -43,5 +43,7 @@ android { // main settings for your application
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
-    compile 'com.android.support:appcompat-v7:26.1.0'
+    compile 'com.android.support:appcompat-v7:27.0.0'
+    compile 'com.google.android.exoplayer:exoplayer:r2.5.4'
+    compile 'com.writingminds:FFmpegAndroid:0.3.2'
 }
