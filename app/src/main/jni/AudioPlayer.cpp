@@ -94,17 +94,21 @@ extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivit
 }
 
 extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_onPlayPause(JNIEnv *jniEnv, jobject instance, jboolean play) {
-    audioPlayer->onPlayPause(play);
+    if (audioPlayer != NULL)
+        audioPlayer->onPlayPause(play);
 }
 
 extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_onCentsChanged(JNIEnv *jniEnv, jobject instance, jint cents) {
-    audioPlayer->onCentsChanged((int)cents);
+    if (audioPlayer != NULL)
+        audioPlayer->onCentsChanged((int)cents);
 }
 
 extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_onTempoChanged(JNIEnv *jniEnv, jobject instance, jdouble tempo) {
-    audioPlayer->onTempoChanged((double)tempo);
+    if (audioPlayer != NULL)
+        audioPlayer->onTempoChanged((double)tempo);
 }
 
 extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_onPositionChanged(JNIEnv *jniEnv, jobject instance, jdouble msec) {
-    audioPlayer->onPositionChanged((double)msec);
+    if (audioPlayer != NULL)
+        audioPlayer->onPositionChanged((double)msec);
 }

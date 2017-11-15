@@ -1,11 +1,18 @@
 package com.skopincev.videochangingdemoapp.ui;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.media.AudioManager;
 import android.net.Uri;
+import android.os.Build;
+import android.provider.DocumentsContract;
 import android.provider.MediaStore;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -16,12 +23,14 @@ import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.github.hiteshsondhi88.libffmpeg.ExecuteBinaryResponseHandler;
 import com.github.hiteshsondhi88.libffmpeg.FFmpeg;
 import com.github.hiteshsondhi88.libffmpeg.LoadBinaryResponseHandler;
 import com.github.hiteshsondhi88.libffmpeg.exceptions.FFmpegCommandAlreadyRunningException;
 import com.github.hiteshsondhi88.libffmpeg.exceptions.FFmpegNotSupportedException;
+import com.skopincev.videochangingdemoapp.BundleConst;
 import com.skopincev.videochangingdemoapp.R;
 import com.skopincev.videochangingdemoapp.media_processing.AudioExtractor;
 import com.skopincev.videochangingdemoapp.media_processing.OnPlaybackStateChangeListener;
@@ -66,7 +75,43 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        init();
+        checkAllPermissions();
+    }
+
+    private void checkAllPermissions() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+                || ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{
+                                Manifest.permission.READ_EXTERNAL_STORAGE,
+                                Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        1);
+            }
+        } else {
+            init();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        boolean granted = true;
+        if (requestCode == 1) {
+            if (grantResults.length == 2) {
+                for (int result : grantResults) {
+                    if (result != PackageManager.PERMISSION_GRANTED) {
+                        granted = false;
+                    }
+                }
+                if (granted) {
+                    init();
+                } else {
+                    finish();
+                }
+            }
+        } else {
+            super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
     }
 
     private void init() {
@@ -110,11 +155,18 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
 
     private void chooseVideoFile(){
         deleteCurrentMediaFiles();
+        setUiDefaultConfig();
 
-        Intent intent = new Intent();
-        intent.setType("video/*");
-        intent.setAction(Intent.ACTION_GET_CONTENT);
-        startActivityForResult(Intent.createChooser(intent,"Select Video"), REQUEST_TAKE_GALLERY_VIDEO);
+        Intent pickIntent = new Intent(Intent.ACTION_PICK);
+        pickIntent.setType("video/*");
+        startActivityForResult(Intent.createChooser(pickIntent,"Select Video"), REQUEST_TAKE_GALLERY_VIDEO);
+    }
+
+    private void setUiDefaultConfig() {
+        sbPitchShift.setProgress(BundleConst.INIT_CENTS);
+        sbSpeed.setProgress(BundleConst.INIT_SPEED);
+        setExtractingMode(false);
+        videoView.pause();
     }
 
     private void deleteCurrentMediaFiles() {
@@ -138,30 +190,32 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                 Uri selectedVideoUri = data.getData();
 
                 // MEDIA GALLERY
-                String selectedVideoPath = getPath(selectedVideoUri);
+                String selectedVideoPath = getRealPathFromURI(selectedVideoUri);
                 if (selectedVideoPath != null) {
-                    //Extracting audio and video
                     String[] temp = selectedVideoPath.split("/");
                     String videoFileName = temp[temp.length - 1].split("\\.")[0];
                     String videoFileFormat = temp[temp.length - 1].split("\\.")[1];
 
+                    //Extracting audio
                     setExtractingMode(true);
 
-                    String extractedAudioFileName = videoFileName + "_audio";
+                    String extractedAudioFileName = videoFileName + "_novideo";
                     String extractedAudioFilePath = getExternalFilesDir(null).getAbsolutePath() + "/" + extractedAudioFileName + ".aac";
                     extractAudio(selectedVideoPath, extractedAudioFilePath);
-
-                    String extractedVideoFileName = videoFileName + "_video";
-                    String extractedVideoFilePath = getExternalFilesDir(null).getAbsolutePath() + "/" + extractedVideoFileName + "." + videoFileFormat;
-                    extractVideo(selectedVideoPath, extractedVideoFilePath);
 
                     currentAudioFile = new File(extractedAudioFilePath);
                     if (currentAudioFile.exists()){
                         //Configuring Superpowered audio player
                         int audioFileOffset = 0, audioFileLength = (int)currentAudioFile.length();
-                        // Arguments: path to the audio file, offset and length of the audio file, sample rate, audio buffer size.
                         initAudioPlayer(Integer.parseInt(samplerateString), Integer.parseInt(buffersizeString), extractedAudioFilePath, audioFileOffset, audioFileLength);
+
+                        //Extracting video
+                        String extractedVideoFileName = videoFileName + "_nosound";
+                        String extractedVideoFilePath = getExternalFilesDir(null).getAbsolutePath() + "/" + extractedVideoFileName + "." + videoFileFormat;
+                        extractVideo(selectedVideoPath, extractedVideoFilePath);
                     }
+                } else {
+                    Toast.makeText(this, "Can't open file", Toast.LENGTH_SHORT).show();
                 }
             }
         }
@@ -176,18 +230,18 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         pbExtracting.setEnabled(mode);
     }
 
-    public String getPath(Uri uri) {
-        String[] projection = { MediaStore.Video.Media.DATA };
-        Cursor cursor = getContentResolver().query(uri, projection, null, null, null);
-        if (cursor != null) {
-            // HERE YOU WILL GET A NULLPOINTER IF CURSOR IS NULL
-            // THIS CAN BE, IF YOU USED OI FILE MANAGER FOR PICKING THE MEDIA
-            int column_index = cursor
-                    .getColumnIndexOrThrow(MediaStore.Video.Media.DATA);
+    private String getRealPathFromURI(Uri contentURI) {
+        String result;
+        Cursor cursor = getContentResolver().query(contentURI, null, null, null, null);
+        if (cursor == null) { // Source is Dropbox or other similar local file path
+            result = contentURI.getPath();
+        } else {
             cursor.moveToFirst();
-            return cursor.getString(column_index);
-        } else
-            return null;
+            int columnIndex = cursor.getColumnIndex(MediaStore.Video.VideoColumns.DATA);
+            result = cursor.getString(columnIndex);
+            cursor.close();
+        }
+        return result;
     }
 
     private void extractAudio(String videoFilePath, String extractedAudioFilePath){
@@ -206,13 +260,19 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                 }
 
                 @Override
+                public void onFinish() {
+                    super.onFinish();
+                    Log.d(TAG, "onFinish: Video extracting FINISHED\n");
+                    setExtractingMode(false);
+                }
+
+                @Override
                 public void onSuccess(String message) {
                     super.onSuccess(message);
                     Log.d(TAG, "extractVideo: Video extracting SUCCEED\n" + message);
                     //Configuring video player
                     currentVideoFile = new File(extractedVideoFilePath);
                     if (currentVideoFile.exists()){
-                        setExtractingMode(false);
                         videoView.clear();
                         videoView.initMediaPlayer(extractedVideoFilePath, MainActivity.this);
                     }
@@ -237,7 +297,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         sbPitchShift.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                int cents = progress - 1200;
+                int cents = progress - BundleConst.INIT_CENTS;
                 onCentsChanged(cents);
                 tvCents.setText("cents: " + cents);
             }

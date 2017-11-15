@@ -54,6 +54,7 @@ public class VideoContentView extends RelativeLayout implements
     private int videoDuration;
     private TextureView textureView;
     private OnPlaybackStateChangeListener playbackStateChangeListener;
+    private String videoPath;
 
     public VideoContentView(Context context) {
         super(context);
@@ -82,7 +83,9 @@ public class VideoContentView extends RelativeLayout implements
     }
 
     public void initMediaPlayer(String videoPath, OnPlaybackStateChangeListener playbackStateChangeListener) {
+        this.videoPath = videoPath;
         this.playbackStateChangeListener = playbackStateChangeListener;
+
         textureView = this.findViewById(R.id.txv_video_surface_view);
         textureView.setSurfaceTextureListener(this);
         relativeLayout = this.findViewById(R.id.rl_video_layout);
@@ -128,7 +131,7 @@ public class VideoContentView extends RelativeLayout implements
         if (mediaController == null) {
             return;
         }
-        if (mediaController.isShowing()) {
+        if (controllerAnchor != null && mediaController.isShowing()) {
             mediaController.hide();
         } else {
             mediaController.show();
@@ -201,7 +204,7 @@ public class VideoContentView extends RelativeLayout implements
         }
         videoDuration = mediaPlayer.getDuration();
 
-        showMediaControls();
+        start();
 
         Log.d(TAG, "onPrepared: Player prepared");
     }

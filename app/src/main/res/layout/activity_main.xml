@@ -28,8 +28,8 @@
         android:minHeight="40dp"
         android:layout_below="@+id/tv_pitch_mark"
         android:layout_centerHorizontal="true"
-        android:max="2400"
-        android:progress="1200"
+        android:max="600"
+        android:progress="300"
         android:progressBackgroundTint="@android:color/white"/>
 
     <TextView
