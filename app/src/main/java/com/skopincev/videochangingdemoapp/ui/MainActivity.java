@@ -53,7 +53,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     private native void onPlayPause(boolean play);
     private native void onCentsChanged(int cents);
     private native void onTempoChanged(double tempo);
-    private native void onPositionChanged(double msec);
+    private native void onPositionChanged(double percentage);
     private native void onStopPlaying();
 
     private FFmpeg ffmpeg = null;
@@ -202,6 +202,8 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
 
                     String extractedAudioFileName = videoFileName + "_novideo";
                     String extractedAudioFilePath = getExternalFilesDir(null).getAbsolutePath() + "/" + extractedAudioFileName + ".aac";
+                    //Delete file with same name
+                    Log.d(TAG, "onActivityResult: Same audio file " + (new File(extractedAudioFilePath).delete() ? "deleted" : "is not exist"));
                     extractAudio(selectedVideoPath, extractedAudioFilePath);
 
                     currentAudioFile = new File(extractedAudioFilePath);
@@ -213,6 +215,8 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                         //Extracting video
                         String extractedVideoFileName = videoFileName + "_nosound";
                         String extractedVideoFilePath = getExternalFilesDir(null).getAbsolutePath() + "/" + extractedVideoFileName + "." + videoFileFormat;
+                        //Delete file with same name
+                        Log.d(TAG, "onActivityResult: Same video file " + (new File(extractedVideoFilePath).delete() ? "deleted" : "is not exist"));
                         extractVideo(selectedVideoPath, extractedVideoFilePath);
                     }
                 } else {
@@ -358,8 +362,8 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     }
 
     @Override
-    public void setNewPositionState(double msec) {
-        onPositionChanged(msec);
+    public void setNewPositionState(double percentage) {
+        onPositionChanged(percentage);
     }
 
     @Override

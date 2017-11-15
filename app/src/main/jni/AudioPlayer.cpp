@@ -83,10 +83,10 @@ void NDKAudioPlayer::onTempoChanged(double tempo) {
     player->setTempo(tempo, true);
 }
 
-void NDKAudioPlayer::onPositionChanged(double msec) {
-    player->setPosition(msec, false, false);
+void NDKAudioPlayer::onPositionChanged(double percentage) {
+    player->seek(percentage);
     char msecString[64];
-    snprintf(msecString, sizeof(msecString), "%g", msec);
+    snprintf(msecString, sizeof(msecString), "%g", percentage);
     char message[64] = "Audio position: ";
     strcat(message, msecString);
     __android_log_write(ANDROID_LOG_DEBUG, "Playing position", message);
@@ -122,9 +122,9 @@ extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivit
         audioPlayer->onTempoChanged((double)tempo);
 }
 
-extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_onPositionChanged(JNIEnv *jniEnv, jobject instance, jdouble msec) {
+extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_onPositionChanged(JNIEnv *jniEnv, jobject instance, jdouble percentage) {
     if (audioPlayer != NULL)
-        audioPlayer->onPositionChanged((double)msec);
+        audioPlayer->onPositionChanged((double)percentage);
 }
 
 extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_onStopPlaying(JNIEnv *jniEnv, jobject instance) {

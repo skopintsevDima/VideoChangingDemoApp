@@ -269,8 +269,8 @@ public class VideoContentView extends RelativeLayout implements
     @Override
     public void seekTo(int pos) {
         if (mediaPlayer != null) {
-            playbackStateChangeListener.setNewPositionState((double)pos);
             mediaPlayer.seekTo(pos);
+            playbackStateChangeListener.setNewPositionState((double)pos / videoDuration);
             Log.d("Playing position", "Video position: " + pos);
         }
     }
