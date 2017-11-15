@@ -7,4 +7,5 @@ package com.skopincev.videochangingdemoapp.media_processing;
 public interface OnPlaybackStateChangeListener {
     void setPlayState(boolean play);
     void setNewPositionState(double msec);
+    void setStopState();
 }

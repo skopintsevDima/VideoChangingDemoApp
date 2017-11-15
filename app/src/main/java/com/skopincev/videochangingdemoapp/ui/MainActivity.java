@@ -54,6 +54,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     private native void onCentsChanged(int cents);
     private native void onTempoChanged(double tempo);
     private native void onPositionChanged(double msec);
+    private native void onStopPlaying();
 
     private FFmpeg ffmpeg = null;
 
@@ -359,5 +360,10 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     @Override
     public void setNewPositionState(double msec) {
         onPositionChanged(msec);
+    }
+
+    @Override
+    public void setStopState() {
+        onStopPlaying();
     }
 }

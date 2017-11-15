@@ -12,6 +12,7 @@
 #include <SLES/OpenSLES_AndroidConfiguration.h>
 #include <string.h>
 #include <android/log.h>
+#include <pthread.h>
 
 static JNIEnv *javaEnvironment;
 
@@ -26,6 +27,14 @@ static void playerEventCallback(void *clientData, SuperpoweredAdvancedAudioPlaye
 
 static bool audioProcessing(void *clientdata, short int *audioIO, int numberOfSamples, int __unused samplerate) {
     return ((NDKAudioPlayer *)clientdata)->process(audioIO, (unsigned int)numberOfSamples);
+}
+
+static void *playerPositionTracking(){
+
+}
+
+static void startPlayerPositionTracking(){
+
 }
 
 NDKAudioPlayer::NDKAudioPlayer(unsigned int samplerate, unsigned int buffersize, const char *path,
@@ -83,6 +92,11 @@ void NDKAudioPlayer::onPositionChanged(double msec) {
     __android_log_write(ANDROID_LOG_DEBUG, "Playing position", message);
 }
 
+void NDKAudioPlayer::onStop() {
+    player->pause();
+    player->seek(0);
+}
+
 static NDKAudioPlayer *audioPlayer;
 
 extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_initAudioPlayer(JNIEnv *jniEnv, jobject __unused obj, jint samplerate, jint buffersize, jstring audioFilePath, jint audioFileOffset, jint audioFileLength) {
@@ -111,4 +125,9 @@ extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivit
 extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_onPositionChanged(JNIEnv *jniEnv, jobject instance, jdouble msec) {
     if (audioPlayer != NULL)
         audioPlayer->onPositionChanged((double)msec);
+}
+
+extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_onStopPlaying(JNIEnv *jniEnv, jobject instance) {
+    if (audioPlayer != NULL)
+        audioPlayer->onStop();
 }

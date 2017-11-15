@@ -331,6 +331,7 @@ public class VideoContentView extends RelativeLayout implements
     @Override
     public void onCompletion(MediaPlayer mp) {
         Log.d(TAG, "onCompletion");
+        playbackStateChangeListener.setStopState();
         showMediaControls();
     }
 
