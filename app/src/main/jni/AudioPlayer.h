@@ -10,6 +10,7 @@
 #include <SuperpoweredAdvancedAudioPlayer.h>
 #include <AndroidIO/SuperpoweredAndroidAudioIO.h>
 #include <SuperpoweredTimeStretching.h>
+#include <jni.h>
 
 #define HEADROOM_DECIBEL 3.0f
 static const float headroom = powf(10.0f, -HEADROOM_DECIBEL * 0.025f);
@@ -27,6 +28,7 @@ public:
     void onTempoChanged(double tempo);
     void onPositionChanged(double percentage);
     void onStop();
+    double getProgress();
 
 private:
 

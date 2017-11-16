@@ -271,7 +271,7 @@ public class VideoContentView extends RelativeLayout implements
         if (mediaPlayer != null) {
             mediaPlayer.seekTo(pos);
             playbackStateChangeListener.setNewPositionState((double)pos / videoDuration);
-            Log.d("Playing position", "Video position: " + pos);
+            Log.d("VideoPP", "Video player position: " + String.format("%f", (double)pos / videoDuration));
         }
     }
 

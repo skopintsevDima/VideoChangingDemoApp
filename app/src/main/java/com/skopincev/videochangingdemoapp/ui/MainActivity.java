@@ -55,6 +55,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     private native void onTempoChanged(double tempo);
     private native void onPositionChanged(double percentage);
     private native void onStopPlaying();
+    private native double getAudioPlayerProgress();
 
     private FFmpeg ffmpeg = null;
 
@@ -181,8 +182,9 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
 
     @Override
     protected void onDestroy() {
-        super.onDestroy();
         deleteCurrentMediaFiles();
+        tracking = false;
+        super.onDestroy();
     }
 
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -280,6 +282,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                     if (currentVideoFile.exists()){
                         videoView.clear();
                         videoView.initMediaPlayer(extractedVideoFilePath, MainActivity.this);
+                        initPlayersPositionTracking();
                     }
                 }
 
@@ -358,9 +361,30 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         }
     }
 
+    private boolean tracking = false;
+    private void initPlayersPositionTracking(){
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (!isDestroyed()){
+                    while (tracking){
+                        if (videoView != null) {
+                            double videoPercentage = (double) videoView.getCurrentPosition() / videoView.getDuration();
+                            double audioPercentage = getAudioPlayerProgress();
+
+                            Log.d(TAG, "Audio progress: " + String.format("%f", audioPercentage));
+                            Log.d(TAG, "Video progress: " + String.format("%f", videoPercentage));
+                        }
+                    }
+                }
+            }
+        }).start();
+    }
+
     @Override
     public void setPlayState(boolean play) {
         onPlayPause(play);
+        tracking = true;
     }
 
     @Override

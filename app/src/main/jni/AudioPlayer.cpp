@@ -29,14 +29,6 @@ static bool audioProcessing(void *clientdata, short int *audioIO, int numberOfSa
     return ((NDKAudioPlayer *)clientdata)->process(audioIO, (unsigned int)numberOfSamples);
 }
 
-static void *playerPositionTracking(){
-
-}
-
-static void startPlayerPositionTracking(){
-
-}
-
 NDKAudioPlayer::NDKAudioPlayer(unsigned int samplerate, unsigned int buffersize, const char *path,
                                int audioFileOffset, int audioFileLength): volume(1.0f) { //* headroom) {
     stereoBuffer = (float *)memalign(16, (buffersize + 16) * sizeof(float) * 2);
@@ -86,15 +78,19 @@ void NDKAudioPlayer::onTempoChanged(double tempo) {
 void NDKAudioPlayer::onPositionChanged(double percentage) {
     player->seek(percentage);
     char msecString[64];
-    snprintf(msecString, sizeof(msecString), "%g", percentage);
-    char message[64] = "Audio position: ";
+    snprintf(msecString, sizeof(msecString), "%g", player->positionMs / player->durationMs);
+    char message[64] = "Audio player position: ";
     strcat(message, msecString);
-    __android_log_write(ANDROID_LOG_DEBUG, "Playing position", message);
+    __android_log_write(ANDROID_LOG_DEBUG, "AudioPP", message);
 }
 
 void NDKAudioPlayer::onStop() {
     player->pause();
     player->seek(0);
+}
+
+double NDKAudioPlayer::getProgress() {
+    return player->positionMs / player->durationMs;
 }
 
 static NDKAudioPlayer *audioPlayer;
@@ -130,4 +126,11 @@ extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivit
 extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_onStopPlaying(JNIEnv *jniEnv, jobject instance) {
     if (audioPlayer != NULL)
         audioPlayer->onStop();
+}
+
+extern "C" JNIEXPORT jdouble Java_com_skopincev_videochangingdemoapp_ui_MainActivity_getAudioPlayerProgress(JNIEnv *jniEnv, jobject instance) {
+    if (audioPlayer != NULL)
+        return audioPlayer->getProgress();
+    else
+        return 0;
 }
