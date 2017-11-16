@@ -38,7 +38,7 @@ static void startPlayerPositionTracking(){
 }
 
 NDKAudioPlayer::NDKAudioPlayer(unsigned int samplerate, unsigned int buffersize, const char *path,
-                               int audioFileOffset, int audioFileLength): volume(1.0f * headroom) {
+                               int audioFileOffset, int audioFileLength): volume(1.0f) { //* headroom) {
     stereoBuffer = (float *)memalign(16, (buffersize + 16) * sizeof(float) * 2);
     currentSamplerate = samplerate;
 
