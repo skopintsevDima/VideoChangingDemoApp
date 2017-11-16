@@ -8,7 +8,6 @@ import android.database.Cursor;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
-import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -30,6 +29,28 @@ import com.github.hiteshsondhi88.libffmpeg.FFmpeg;
 import com.github.hiteshsondhi88.libffmpeg.LoadBinaryResponseHandler;
 import com.github.hiteshsondhi88.libffmpeg.exceptions.FFmpegCommandAlreadyRunningException;
 import com.github.hiteshsondhi88.libffmpeg.exceptions.FFmpegNotSupportedException;
+import com.google.android.exoplayer2.DefaultLoadControl;
+import com.google.android.exoplayer2.DefaultRenderersFactory;
+import com.google.android.exoplayer2.ExoPlaybackException;
+import com.google.android.exoplayer2.ExoPlayer;
+import com.google.android.exoplayer2.ExoPlayerFactory;
+import com.google.android.exoplayer2.PlaybackParameters;
+import com.google.android.exoplayer2.Player;
+import com.google.android.exoplayer2.SimpleExoPlayer;
+import com.google.android.exoplayer2.Timeline;
+import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory;
+import com.google.android.exoplayer2.extractor.ExtractorsFactory;
+import com.google.android.exoplayer2.source.ExtractorMediaSource;
+import com.google.android.exoplayer2.source.MediaSource;
+import com.google.android.exoplayer2.source.TrackGroupArray;
+import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
+import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
+import com.google.android.exoplayer2.ui.SimpleExoPlayerView;
+import com.google.android.exoplayer2.upstream.DataSource;
+import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
+import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
+import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory;
+import com.google.android.exoplayer2.util.Util;
 import com.skopincev.videochangingdemoapp.BundleConst;
 import com.skopincev.videochangingdemoapp.R;
 import com.skopincev.videochangingdemoapp.media_processing.AudioExtractor;
@@ -64,13 +85,18 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     private TextView tvSpeed;
     private TextView tvCents;
     private FrameLayout flVideo;
-    private VideoContentView videoView;
+    private SimpleExoPlayerView playerView;
     private ProgressBar pbExtracting;
 
     private String samplerateString = null;
     private String buffersizeString = null;
     private File currentVideoFile = null;
     private File currentAudioFile = null;
+    private SimpleExoPlayer player;
+    private long playbackPosition;
+    private int currentWindow;
+    private boolean playWhenReady;
+    private Thread trackerThread;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -168,7 +194,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         sbPitchShift.setProgress(BundleConst.INIT_CENTS);
         sbSpeed.setProgress(BundleConst.INIT_SPEED);
         setExtractingMode(false);
-        videoView.pause();
+        player.setPlayWhenReady(false);
     }
 
     private void deleteCurrentMediaFiles() {
@@ -184,6 +210,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     protected void onDestroy() {
         deleteCurrentMediaFiles();
         tracking = false;
+        onPlayPause(false);
         super.onDestroy();
     }
 
@@ -280,8 +307,9 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                     //Configuring video player
                     currentVideoFile = new File(extractedVideoFilePath);
                     if (currentVideoFile.exists()){
-                        videoView.clear();
-                        videoView.initMediaPlayer(extractedVideoFilePath, MainActivity.this);
+                        releasePlayer();
+                        initializePlayer();
+                        setVideoSourceForPlayer(Uri.fromFile(new File(extractedVideoFilePath)));
                         initPlayersPositionTracking();
                     }
                 }
@@ -315,7 +343,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-                videoView.seekTo(0);
+                player.seekTo(0);
             }
         });
 
@@ -323,9 +351,11 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         sbSpeed.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                double tempo = ((double)progress - 50) / 100 + 1.00f;
+                double tempo = ((double)progress - BundleConst.INIT_SPEED) / (BundleConst.INIT_SPEED * 1.5) + 1.00f;
                 onTempoChanged(tempo);
-                tvSpeed.setText("speed: " + tempo + "x");
+                PlaybackParameters currentPlaybackParameters = player.getPlaybackParameters();
+                player.setPlaybackParameters(new PlaybackParameters((float) tempo, currentPlaybackParameters.pitch));
+                tvSpeed.setText("speed: " + String.format("%.2f", tempo) + "x");
             }
 
             @Override
@@ -335,11 +365,107 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
             public void onStopTrackingTouch(SeekBar seekBar) {}
         });
 
-        flVideo = findViewById(R.id.fl_video_container);
-        videoView = new VideoContentView(this);
-        flVideo.addView(videoView);
+        playerView = findViewById(R.id.exv_video);
+        initializePlayer();
 
-        pbExtracting = videoView.findViewById(R.id.pb_extracting);
+        pbExtracting = findViewById(R.id.pb_extracting);
+    }
+
+    private void initializePlayer() {
+        player = ExoPlayerFactory.newSimpleInstance(
+                new DefaultRenderersFactory(this),
+                new DefaultTrackSelector(), new DefaultLoadControl());
+
+        playerView.setPlayer(player);
+
+        player.setPlayWhenReady(false);
+        player.seekTo(0);
+
+        player.addListener(new Player.EventListener() {
+            @Override
+            public void onTimelineChanged(Timeline timeline, Object manifest) {}
+            @Override
+            public void onTracksChanged(TrackGroupArray trackGroups, TrackSelectionArray trackSelections) {}
+            @Override
+            public void onLoadingChanged(boolean isLoading) {}
+            @Override
+            public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
+                setPlayState(playWhenReady);
+                if (player.getPlaybackState() == Player.STATE_ENDED){
+                    setStopState();
+                }
+            }
+            @Override
+            public void onRepeatModeChanged(int repeatMode) {}
+            @Override
+            public void onPlayerError(ExoPlaybackException error) {}
+            @Override
+            public void onPositionDiscontinuity() {}
+            @Override
+            public void onPlaybackParametersChanged(PlaybackParameters playbackParameters) {}
+        });
+    }
+
+    private void setVideoSourceForPlayer(Uri contentUri){
+        // Measures bandwidth during playback. Can be null if not required.
+        DefaultBandwidthMeter bandwidthMeter = new DefaultBandwidthMeter();
+        // Produces DataSource instances through which media data is loaded.
+        DataSource.Factory dataSourceFactory = new DefaultDataSourceFactory(this,
+                Util.getUserAgent(this, "yourApplicationName"), bandwidthMeter);
+        // Produces Extractor instances for parsing the media data.
+        ExtractorsFactory extractorsFactory = new DefaultExtractorsFactory();
+        // This is the MediaSource representing the media to be played.
+        MediaSource videoSource = new ExtractorMediaSource(contentUri,
+                dataSourceFactory, extractorsFactory, null, null);
+        player.prepare(videoSource, true, false);
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        if (Util.SDK_INT > 23) {
+            initializePlayer();
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (Util.SDK_INT <= 23) {
+            releasePlayer();
+        }
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        if (trackerThread != null){
+            tracking = false;
+        }
+        if (Util.SDK_INT > 23) {
+            releasePlayer();
+        }
+    }
+
+    private void releasePlayer() {
+        if (player != null) {
+            playbackPosition = player.getCurrentPosition();
+            currentWindow = player.getCurrentWindowIndex();
+            playWhenReady = player.getPlayWhenReady();
+            player.release();
+            player = null;
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if ((Util.SDK_INT <= 23 || player == null)) {
+            initializePlayer();
+        }
+        if (trackerThread != null && trackerThread.isAlive()){
+            tracking = true;
+        }
     }
 
     @Override
@@ -363,13 +489,13 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
 
     private boolean tracking = false;
     private void initPlayersPositionTracking(){
-        new Thread(new Runnable() {
+        trackerThread = new Thread(new Runnable() {
             @Override
             public void run() {
                 while (!isDestroyed()){
                     while (tracking){
-                        if (videoView != null) {
-                            double videoPercentage = (double) videoView.getCurrentPosition() / videoView.getDuration();
+                        if (player != null) {
+                            double videoPercentage = (double) player.getCurrentPosition() / player.getDuration();
                             double audioPercentage = getAudioPlayerProgress();
 
                             Log.d(TAG, "Audio progress: " + String.format("%f", audioPercentage));
@@ -378,7 +504,8 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                     }
                 }
             }
-        }).start();
+        });
+        trackerThread.start();
     }
 
     @Override
