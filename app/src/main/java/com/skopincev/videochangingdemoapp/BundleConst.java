@@ -5,6 +5,6 @@ package com.skopincev.videochangingdemoapp;
  */
 
 public interface BundleConst {
-    int INIT_CENTS = 300;
+    int INIT_CENTS = 1200;
     int INIT_SPEED = 50;
 }

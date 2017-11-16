@@ -311,7 +311,9 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
             public void onStartTrackingTouch(SeekBar seekBar) {}
 
             @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
+            public void onStopTrackingTouch(SeekBar seekBar) {
+                videoView.seekTo(0);
+            }
         });
 
         sbSpeed = findViewById(R.id.sb_speed);
