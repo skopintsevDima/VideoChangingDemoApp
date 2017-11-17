@@ -21,6 +21,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -66,6 +67,8 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     private FrameLayout flVideo;
     private VideoContentView videoView;
     private ProgressBar pbExtracting;
+    private ProgressBar pbSaving;
+    private RelativeLayout rlLayoutContainer;
 
     private String samplerateString = null;
     private String buffersizeString = null;
@@ -262,7 +265,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                 @Override
                 public void onFinish() {
                     super.onFinish();
-                    Log.d(TAG, "onFinish: Video extracting FINISHED\n");
+                    Log.d(TAG, "extractVideo: Video extracting FINISHED\n");
                     setExtractingMode(false);
                 }
 
@@ -286,11 +289,13 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                 }
             });
         } catch (FFmpegCommandAlreadyRunningException e) {
-            Log.d(TAG, "extractVideo: Video extracting FAILED");
+            Log.d(TAG, "extractVideo: Video extracting FAILED" + e.getMessage());
         }
     }
 
     private void initUI() {
+        rlLayoutContainer = findViewById(R.id.rl_layout_container);
+
         tvCents = findViewById(R.id.tv_cents);
         tvSpeed = findViewById(R.id.tv_speed);
 
@@ -333,6 +338,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         flVideo.addView(videoView);
 
         pbExtracting = videoView.findViewById(R.id.pb_extracting);
+        pbSaving = findViewById(R.id.pb_saving);
     }
 
     @Override
@@ -348,9 +354,85 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                 chooseVideoFile();
                 return true;
             }
+            case R.id.mi_save_video:{
+                if (currentVideoFile != null && currentVideoFile.exists()){
+                    String currentVideoFilePath = currentVideoFile.getAbsolutePath();
+                    String resultFilePath = getExternalFilesDir(null) + "/resultVideo.mp4";
+                    new File(resultFilePath).delete();
+                    saveVideo(currentVideoFilePath, resultFilePath, 2);
+                }
+                return true;
+            }
             default: {
                 return false;
             }
+        }
+    }
+
+    private void saveVideo(String videoFilePath, String resultFilePath, float speed) {
+        String cmd = "[0:v]fps=50.0, setpts=0.5*PTS[v];[0:a]atempo=2.0[a] -map [v] -map [a] -preset ultrafast /storage/emulated/0/VID-20170716-VidRotate1.mp4";
+
+        float factor = 1 / speed;
+        String[] commands =
+                {       "-y",
+                        "-i",
+                        videoFilePath,
+                        "-filter_complex",
+                        "[0:v]fps=50.0, setpts=" + String.format("%f", factor) + "*PTS[v]",
+                        "-map",
+                        "[v]",
+                        "-preset",
+                        "ultrafast",
+                        resultFilePath
+                };
+        try {
+            ffmpeg.execute(commands, new ExecuteBinaryResponseHandler(){
+                @Override
+                public void onStart() {
+                    super.onStart();
+                    Log.d(TAG, "saveVideo: Video saving STARTED\n");
+                    setSavingMode(true);
+                }
+
+                @Override
+                public void onFinish() {
+                    super.onFinish();
+                    Log.d(TAG, "saveVideo: Video saving FINISHED\n");
+                    setSavingMode(false);
+                }
+
+                @Override
+                public void onProgress(String message) {
+                    super.onProgress(message);
+                    Log.d(TAG, "saveVideo: Video saving progress:\n" + message);
+                }
+
+                @Override
+                public void onSuccess(String message) {
+                    super.onSuccess(message);
+                    Log.d(TAG, "saveVideo: Video saving SUCCEED\n" + message);
+                }
+
+                @Override
+                public void onFailure(String message) {
+                    super.onFailure(message);
+                    Log.d(TAG, "saveVideo: Video saving FAILED\n" + message);
+                }
+            });
+        } catch (FFmpegCommandAlreadyRunningException e) {
+            Log.d(TAG, "saveVideo: Video saving FAILED" + e.getMessage());
+        }
+    }
+
+    private void setSavingMode(boolean saving) {
+        if (saving){
+            rlLayoutContainer.setVisibility(View.INVISIBLE);
+            pbSaving.setVisibility(View.VISIBLE);
+            pbSaving.setEnabled(true);
+        } else {
+            rlLayoutContainer.setVisibility(View.VISIBLE);
+            pbSaving.setVisibility(View.INVISIBLE);
+            pbSaving.setEnabled(false);
         }
     }
 

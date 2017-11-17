@@ -7,64 +7,80 @@
     tools:context="com.skopincev.videochangingdemoapp.ui.MainActivity"
     android:background="@android:color/darker_gray">
 
-    <FrameLayout
-        android:id="@+id/fl_video_container"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"/>
+    <ProgressBar
+        android:id="@+id/pb_saving"
+        android:layout_width="100dp"
+        android:layout_height="100dp"
+        android:background="@android:color/transparent"
+        android:layout_centerInParent="true"
+        android:indeterminate="true"
+        android:visibility="invisible"/>
 
-    <TextView
-        android:id="@+id/tv_pitch_mark"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Pitch"
-        android:layout_below="@+id/fl_video_container"
-        android:layout_centerHorizontal="true"/>
+    <RelativeLayout
+        android:id="@+id/rl_layout_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
-    <SeekBar
-        android:id="@+id/sb_pitch_shift"
-        android:layout_width="300dp"
-        android:layout_height="40dp"
-        android:maxHeight="40dp"
-        android:minHeight="40dp"
-        android:layout_below="@+id/tv_pitch_mark"
-        android:layout_centerHorizontal="true"
-        android:max="2400"
-        android:progress="1200"
-        android:progressBackgroundTint="@android:color/white"/>
+        <FrameLayout
+            android:id="@+id/fl_video_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"/>
 
-    <TextView
-        android:id="@+id/tv_speed_mark"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Speed"
-        android:layout_below="@+id/sb_pitch_shift"
-        android:layout_centerHorizontal="true"/>
+        <TextView
+            android:id="@+id/tv_pitch_mark"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Pitch"
+            android:layout_below="@+id/fl_video_container"
+            android:layout_centerHorizontal="true"/>
 
-    <SeekBar
-        android:id="@+id/sb_speed"
-        android:layout_width="300dp"
-        android:layout_height="40dp"
-        android:maxHeight="40dp"
-        android:minHeight="40dp"
-        android:layout_below="@+id/tv_speed_mark"
-        android:layout_centerHorizontal="true"
-        android:max="100"
-        android:progress="50"
-        android:progressBackgroundTint="@android:color/white"/>
+        <SeekBar
+            android:id="@+id/sb_pitch_shift"
+            android:layout_width="300dp"
+            android:layout_height="40dp"
+            android:maxHeight="40dp"
+            android:minHeight="40dp"
+            android:layout_below="@+id/tv_pitch_mark"
+            android:layout_centerHorizontal="true"
+            android:max="2400"
+            android:progress="1200"
+            android:progressBackgroundTint="@android:color/white"/>
 
-    <TextView
-        android:id="@+id/tv_cents"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="cents: 0"
-        android:layout_alignParentBottom="true"/>
+        <TextView
+            android:id="@+id/tv_speed_mark"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Speed"
+            android:layout_below="@+id/sb_pitch_shift"
+            android:layout_centerHorizontal="true"/>
 
-    <TextView
-        android:id="@+id/tv_speed"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="speed: 1.00x"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentEnd="true"/>
+        <SeekBar
+            android:id="@+id/sb_speed"
+            android:layout_width="300dp"
+            android:layout_height="40dp"
+            android:maxHeight="40dp"
+            android:minHeight="40dp"
+            android:layout_below="@+id/tv_speed_mark"
+            android:layout_centerHorizontal="true"
+            android:max="100"
+            android:progress="50"
+            android:progressBackgroundTint="@android:color/white"/>
+
+        <TextView
+            android:id="@+id/tv_cents"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="cents: 0"
+            android:layout_alignParentBottom="true"/>
+
+        <TextView
+            android:id="@+id/tv_speed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="speed: 1.00x"
+            android:layout_alignParentBottom="true"
+            android:layout_alignParentEnd="true"/>
+
+    </RelativeLayout>
 
 </RelativeLayout>
