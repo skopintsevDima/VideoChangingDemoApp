@@ -36,7 +36,6 @@ private:
     SuperpoweredAdvancedAudioPlayer *player;
     float *stereoBuffer;
     float volume;
-    int currentSamplerate = 0;
 };
 
 #endif

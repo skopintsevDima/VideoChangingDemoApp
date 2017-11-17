@@ -30,9 +30,8 @@ static bool audioProcessing(void *clientdata, short int *audioIO, int numberOfSa
 }
 
 NDKAudioPlayer::NDKAudioPlayer(unsigned int samplerate, unsigned int buffersize, const char *path,
-                               int audioFileOffset, int audioFileLength): volume(1.0f) { //* headroom) {
+                               int audioFileOffset, int audioFileLength): volume(1.5f) { //* headroom) {
     stereoBuffer = (float *)memalign(16, (buffersize + 16) * sizeof(float) * 2);
-    currentSamplerate = samplerate;
 
     player = new SuperpoweredAdvancedAudioPlayer(&player , playerEventCallback, samplerate, 0);
     player->open(path, audioFileOffset, audioFileLength);

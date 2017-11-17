@@ -180,13 +180,6 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         }
     }
 
-    @Override
-    protected void onDestroy() {
-        deleteCurrentMediaFiles();
-        tracking = false;
-        super.onDestroy();
-    }
-
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == RESULT_OK) {
             if (requestCode == REQUEST_TAKE_GALLERY_VIDEO) {
@@ -372,8 +365,20 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                             double videoPercentage = (double) videoView.getCurrentPosition() / videoView.getDuration();
                             double audioPercentage = getAudioPlayerProgress();
 
-                            Log.d(TAG, "Audio progress: " + String.format("%f", audioPercentage));
-                            Log.d(TAG, "Video progress: " + String.format("%f", videoPercentage));
+                            double audioFasterFor = (audioPercentage - videoPercentage) * 100;
+
+                            if (audioFasterFor > 0)
+                                Log.d(TAG, "Audio faster for: " + String.format("%f", audioFasterFor) + " %");
+                            else
+                                Log.d(TAG, "Video faster for: " + String.format("%f", -audioFasterFor) + " %");
+//                            Log.d(TAG, "Audio progress: " + String.format("%f", audioPercentage));
+//                            Log.d(TAG, "Video progress: " + String.format("%f", videoPercentage));
+
+                            try {
+                                Thread.sleep(2000);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
                         }
                     }
                 }
@@ -395,5 +400,26 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     @Override
     public void setStopState() {
         onStopPlaying();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (videoView != null)
+            videoView.pause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (videoView != null)
+            videoView.start();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        deleteCurrentMediaFiles();
+        tracking = false;
     }
 }

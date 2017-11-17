@@ -198,7 +198,7 @@ public class VideoContentView extends RelativeLayout implements
             mediaController.setEnabled(true);
         }
 
-        mediaPlayer.seekTo(currentPosition);
+        seekTo(currentPosition);
         if (textureView.isAvailable()) {
             onSurfaceTextureAvailable(textureView.getSurfaceTexture(), textureView.getWidth(), textureView.getHeight());
         }
