@@ -61,7 +61,6 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     private FFmpeg ffmpeg = null;
 
     private SeekBar sbPitchShift;
-    private SeekBar sbSpeed;
     private TextView tvSpeed;
     private TextView tvCents;
     private FrameLayout flVideo;
@@ -169,7 +168,6 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
 
     private void setUiDefaultConfig() {
         sbPitchShift.setProgress(BundleConst.INIT_CENTS);
-        sbSpeed.setProgress(BundleConst.INIT_SPEED);
         setExtractingMode(false);
         videoView.pause();
     }
@@ -315,22 +313,6 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
             public void onStopTrackingTouch(SeekBar seekBar) {
                 videoView.seekTo(0);
             }
-        });
-
-        sbSpeed = findViewById(R.id.sb_speed);
-        sbSpeed.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override
-            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                double tempo = ((double)progress - 50) / 100 + 1.00f;
-                onTempoChanged(tempo);
-                tvSpeed.setText("speed: " + tempo + "x");
-            }
-
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
         });
 
         flVideo = findViewById(R.id.fl_video_container);

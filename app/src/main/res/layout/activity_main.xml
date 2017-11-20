@@ -47,26 +47,6 @@
             android:progressBackgroundTint="@android:color/white"/>
 
         <TextView
-            android:id="@+id/tv_speed_mark"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Speed"
-            android:layout_below="@+id/sb_pitch_shift"
-            android:layout_centerHorizontal="true"/>
-
-        <SeekBar
-            android:id="@+id/sb_speed"
-            android:layout_width="300dp"
-            android:layout_height="40dp"
-            android:maxHeight="40dp"
-            android:minHeight="40dp"
-            android:layout_below="@+id/tv_speed_mark"
-            android:layout_centerHorizontal="true"
-            android:max="100"
-            android:progress="50"
-            android:progressBackgroundTint="@android:color/white"/>
-
-        <TextView
             android:id="@+id/tv_cents"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
