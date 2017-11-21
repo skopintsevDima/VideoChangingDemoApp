@@ -3,11 +3,13 @@ package com.skopincev.videochangingdemoapp.ui;
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -38,10 +40,11 @@ import com.skopincev.videochangingdemoapp.media_processing.MediaMerger;
 import com.skopincev.videochangingdemoapp.media_processing.OnPlaybackStateChangeListener;
 import com.skopincev.videochangingdemoapp.media_processing.OnResultListener;
 
-import org.apache.commons.io.FileUtils;
-
 import java.io.File;
-import java.io.IOException;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 
 public class MainActivity extends AppCompatActivity implements OnPlaybackStateChangeListener {
 
@@ -78,6 +81,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     private String buffersizeString = null;
     private File currentVideoFile = null;
     private File currentAudioFile = null;
+    private String currentVideoFileName = null;
     private FFmpeg ffmpeg = null;
 
     @Override
@@ -125,7 +129,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     }
 
     private void init() {
-        cleanFilesDirectory();
+//        cleanFilesDirectory();
 
         initSuperpowered();
 
@@ -191,17 +195,23 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         }
     }
 
+    private void deleteSameFile(String fileName) {
+        Log.d(TAG, "deleteSameFile: Same file " + (new File(fileName).delete() ? "deleted" : "is not exist"));
+    }
+
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == RESULT_OK) {
             if (requestCode == REQUEST_TAKE_GALLERY_VIDEO) {
                 Uri selectedVideoUri = data.getData();
 
-                // MEDIA GALLERY
                 String selectedVideoPath = getRealPathFromURI(selectedVideoUri);
                 if (selectedVideoPath != null) {
+                    videoView.clear();
+
                     String[] temp = selectedVideoPath.split("/");
                     String videoFileName = temp[temp.length - 1].split("\\.")[0];
                     String videoFileFormat = temp[temp.length - 1].split("\\.")[1];
+                    currentVideoFileName = videoFileName;
 
                     //Extracting audio
                     setExtractingMode(true);
@@ -209,7 +219,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                     String extractedAudioFileName = videoFileName + "_novideo";
                     String extractedAudioFilePath = getExternalFilesDir(null).getAbsolutePath() + "/" + extractedAudioFileName + ".aac";
                     //Delete file with same name
-                    Log.d(TAG, "onActivityResult: Same audio file " + (new File(extractedAudioFilePath).delete() ? "deleted" : "is not exist"));
+                    deleteSameFile(extractedAudioFilePath);
                     extractAudio(selectedVideoPath, extractedAudioFilePath);
 
                     currentAudioFile = new File(extractedAudioFilePath);
@@ -222,7 +232,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                         String extractedVideoFileName = videoFileName + "_nosound";
                         String extractedVideoFilePath = getExternalFilesDir(null).getAbsolutePath() + "/" + extractedVideoFileName + "." + videoFileFormat;
                         //Delete file with same name
-                        Log.d(TAG, "onActivityResult: Same video file " + (new File(extractedVideoFilePath).delete() ? "deleted" : "is not exist"));
+                        deleteSameFile(extractedVideoFilePath);
                         extractVideo(selectedVideoPath, extractedVideoFilePath);
                     }
                 } else {
@@ -286,7 +296,6 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                     //Configuring video player
                     currentVideoFile = new File(extractedVideoFilePath);
                     if (currentVideoFile.exists()){
-                        videoView.clear();
                         videoView.initMediaPlayer(extractedVideoFilePath, MainActivity.this);
                         initPlayersPositionTracking();
                     }
@@ -354,8 +363,10 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                         currentAudioFile != null && currentAudioFile.exists()){
                     String currentVideoFilePath = currentVideoFile.getAbsolutePath();
                     String currentAudioFilePath = currentAudioFile.getAbsolutePath();
-                    String resultFilePath = getExternalFilesDir(null) + "/resultVideo.mp4";
-                    new File(resultFilePath).delete();
+                    int cents = sbPitchShift.getProgress() - BundleConst.INIT_CENTS;
+                    String resultFilePath = getExternalFilesDir(null) + "/" +
+                            currentVideoFileName + String.format("_cents(%d)", cents) + ".mp4";
+                    deleteSameFile(resultFilePath);
                     saveVideo(currentVideoFilePath, currentAudioFilePath, resultFilePath);
                 }
                 return true;
@@ -372,13 +383,13 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
 
         //Save pitch shifted audio
         final String resultAudioFilePath_Wave = getExternalFilesDir(null) + "/resultAudio_wave.wav";
-        new File(resultAudioFilePath_Wave).delete();
+        deleteSameFile(resultAudioFilePath_Wave);
         int cents = sbPitchShift.getProgress() - BundleConst.INIT_CENTS;
         saveChangedAudio(audioFilePath, resultAudioFilePath_Wave, cents);
 
         //Convert pitch shifted audio file from WAVE into AAC audio file
         final String resultAudioFilePath = getExternalFilesDir(null) + "/resultAudio.aac";
-        new File(resultAudioFilePath).delete();
+        deleteSameFile(resultAudioFilePath);
         AACEncoder encoder = new AACEncoder();
         encoder.encodeWaveToAac(ffmpeg, resultAudioFilePath_Wave, resultAudioFilePath, new OnResultListener() {
             @Override
@@ -388,12 +399,62 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                     MediaMerger merger = new MediaMerger();
                     merger.mergeWithMuxer(resultAudioFilePath, videoFilePath, resultFilePath);
                     Log.d(TAG, "Video saving SUCCEED");
+
+                    //Put video into Gallery
+                    addVideoToGallery(new File(resultFilePath));
                 } else {
                     Log.d(TAG, "Video saving FAILED");
                 }
                 setSavingMode(false);
             }
         });
+    }
+
+    private String getApplicationName(Context context) {
+        ApplicationInfo applicationInfo = context.getApplicationInfo();
+        int stringId = applicationInfo.labelRes;
+        return stringId == 0 ? applicationInfo.nonLocalizedLabel.toString() : context.getString(stringId);
+    }
+
+    private void moveVideoToGallery(String inputPath, String outputPath) {
+        InputStream in;
+        OutputStream out;
+        try {
+
+            in = new FileInputStream(inputPath);
+            out = new FileOutputStream(outputPath);
+
+            byte[] buffer = new byte[1024];
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+            in.close();
+
+            // write the output file
+            out.flush();
+            out.close();
+
+            // delete the original file
+            deleteSameFile(inputPath);
+            Log.d(TAG, "moveVideoToGallery: Video file moving SUCCEED");
+        } catch (Exception e) {
+            Log.d(TAG, "moveVideoToGallery: Video file moving FAILED\n" + e.getMessage());
+        }
+
+    }
+
+    public void addVideoToGallery(File videoFile) {
+        String appDirectoryName = getApplicationName(this) + " Videos";
+        File appFilesDir = new File(Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_MOVIES), appDirectoryName);
+        if (!appFilesDir.exists())
+            appFilesDir.mkdirs();
+        // TODO: 21.11.2017 Change video file name
+        int cents = sbPitchShift.getProgress() - BundleConst.INIT_CENTS;
+        File video = new File(appFilesDir, currentVideoFileName + String.format("_cents(%d)", cents) + ".mp4");
+        moveVideoToGallery(videoFile.getPath(), video.getPath());
+        sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(video)));
     }
 
     private void saveVideoWithTimeStretching(String videoFilePath, String resultFilePath, float speed) {
@@ -451,6 +512,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
 
     private void setSavingMode(boolean saving) {
         if (saving){
+            videoView.pause();
             videoView.hideMediaControls();
             rlLayoutContainer.setVisibility(View.INVISIBLE);
             pbSaving.setVisibility(View.VISIBLE);
