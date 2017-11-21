@@ -1,15 +1,21 @@
 package com.skopincev.videochangingdemoapp.media_processing;
 
-import android.content.res.AssetFileDescriptor;
 import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.os.Environment;
 import android.util.Log;
-import android.widget.Toast;
+
+import com.github.hiteshsondhi88.libffmpeg.ExecuteBinaryResponseHandler;
+import com.github.hiteshsondhi88.libffmpeg.FFmpeg;
+import com.github.hiteshsondhi88.libffmpeg.FFmpegExecuteResponseHandler;
+import com.github.hiteshsondhi88.libffmpeg.exceptions.FFmpegCommandAlreadyRunningException;
 
 import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -17,24 +23,22 @@ import java.nio.ByteBuffer;
  * Created by skopi on 12.11.2017.
  */
 
-public class AudioVideoMerger {
+public class MediaMerger {
 
-    private static final String TAG = AudioVideoMerger.class.getSimpleName();
+    private static final String TAG = MediaMerger.class.getSimpleName();
 
-    public AudioVideoMerger(){
+    public MediaMerger(){
 
     }
 
-    private void merge(String audioFilePath, String videoFilePath, String outputFile) {
+    public void mergeWithMuxer(String audioFilePath, String videoFilePath, String outputFile) {
         try {
 
-            File file = new File(Environment.getExternalStorageDirectory() + File.separator + "final2.mp4");
-            file.createNewFile();
-            outputFile = file.getAbsolutePath();
-
             MediaExtractor videoExtractor = new MediaExtractor();
-//            AssetFileDescriptor afdd = getAssets().openFd("Produce.MP4");
-//            videoExtractor.setDataSource(afdd.getFileDescriptor() ,afdd.getStartOffset(),afdd.getLength());
+            FileInputStream fileInputStream = new FileInputStream(videoFilePath);
+            FileDescriptor fileDescriptor = fileInputStream.getFD();
+            videoExtractor.setDataSource(fileDescriptor);
+            fileInputStream.close();
 
             MediaExtractor audioExtractor = new MediaExtractor();
             audioExtractor.setDataSource(audioFilePath);
@@ -58,12 +62,11 @@ public class AudioVideoMerger {
             boolean sawEOS = false;
             int frameCount = 0;
             int offset = 100;
-            int sampleSize = 256 * 1024;
+            int sampleSize = 1024 * 1024;
             ByteBuffer videoBuf = ByteBuffer.allocate(sampleSize);
             ByteBuffer audioBuf = ByteBuffer.allocate(sampleSize);
             MediaCodec.BufferInfo videoBufferInfo = new MediaCodec.BufferInfo();
             MediaCodec.BufferInfo audioBufferInfo = new MediaCodec.BufferInfo();
-
 
             videoExtractor.seekTo(0, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
             audioExtractor.seekTo(0, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
@@ -75,13 +78,11 @@ public class AudioVideoMerger {
                 videoBufferInfo.offset = offset;
                 videoBufferInfo.size = videoExtractor.readSampleData(videoBuf, offset);
 
-
                 if (videoBufferInfo.size < 0 || audioBufferInfo.size < 0)
                 {
-                    Log.d(TAG, "saw input EOS.");
+                    Log.d(TAG, "Saw input EOS.");
                     sawEOS = true;
                     videoBufferInfo.size = 0;
-
                 }
                 else
                 {
@@ -90,16 +91,14 @@ public class AudioVideoMerger {
                     muxer.writeSampleData(videoTrack, videoBuf, videoBufferInfo);
                     videoExtractor.advance();
 
-
                     frameCount++;
                     Log.d(TAG, "Frame (" + frameCount + ") Video PresentationTimeUs:" + videoBufferInfo.presentationTimeUs +" Flags:" + videoBufferInfo.flags +" Size(KB) " + videoBufferInfo.size / 1024);
                     Log.d(TAG, "Frame (" + frameCount + ") Audio PresentationTimeUs:" + audioBufferInfo.presentationTimeUs +" Flags:" + audioBufferInfo.flags +" Size(KB) " + audioBufferInfo.size / 1024);
-
                 }
             }
 
             boolean sawEOS2 = false;
-            int frameCount2 =0;
+            int frameCount2 = 0;
             while (!sawEOS2)
             {
                 frameCount2++;
@@ -109,7 +108,7 @@ public class AudioVideoMerger {
 
                 if (videoBufferInfo.size < 0 || audioBufferInfo.size < 0)
                 {
-                    Log.d(TAG, "saw input EOS.");
+                    Log.d(TAG, "Saw input EOS.");
                     sawEOS2 = true;
                     audioBufferInfo.size = 0;
                 }
@@ -119,7 +118,6 @@ public class AudioVideoMerger {
                     audioBufferInfo.flags = audioExtractor.getSampleFlags();
                     muxer.writeSampleData(audioTrack, audioBuf, audioBufferInfo);
                     audioExtractor.advance();
-
 
                     Log.d(TAG, "Frame (" + frameCount + ") Video PresentationTimeUs:" + videoBufferInfo.presentationTimeUs +" Flags:" + videoBufferInfo.flags +" Size(KB) " + videoBufferInfo.size / 1024);
                     Log.d(TAG, "Frame (" + frameCount + ") Audio PresentationTimeUs:" + audioBufferInfo.presentationTimeUs +" Flags:" + audioBufferInfo.flags +" Size(KB) " + audioBufferInfo.size / 1024);
@@ -134,6 +132,59 @@ public class AudioVideoMerger {
             Log.d(TAG, "Mixer Error 1 " + e.getMessage());
         } catch (Exception e) {
             Log.d(TAG, "Mixer Error 2 " + e.getMessage());
+        }
+    }
+
+    public void mergeWithFFMpeg(FFmpeg ffmpeg, String audioPath, String videoPath, String resultPath){
+        String[] commands = {
+                "-i",
+                videoPath,
+                "-i",
+                audioPath,
+                "-c:v",
+                "copy",
+                "-c:a",
+                "aac",
+                "-strict",
+                "-2",
+                "-preset",
+                "ultrafast",
+                resultPath
+        };
+        try {
+            ffmpeg.execute(commands, new ExecuteBinaryResponseHandler(){
+                @Override
+                public void onStart() {
+                    super.onStart();
+                    Log.d(TAG, "mergeWithFFMpeg: Video saving STARTED\n");
+                }
+
+                @Override
+                public void onFinish() {
+                    super.onFinish();
+                    Log.d(TAG, "mergeWithFFMpeg: Video saving FINISHED\n");
+                }
+
+                @Override
+                public void onProgress(String message) {
+                    super.onProgress(message);
+                    Log.d(TAG, "mergeWithFFMpeg: Video saving progress:\n" + message);
+                }
+
+                @Override
+                public void onSuccess(String message) {
+                    super.onSuccess(message);
+                    Log.d(TAG, "mergeWithFFMpeg: Video saving SUCCEED\n" + message);
+                }
+
+                @Override
+                public void onFailure(String message) {
+                    super.onFailure(message);
+                    Log.d(TAG, "mergeWithFFMpeg: Video saving FAILED\n" + message);
+                }
+            });
+        } catch (FFmpegCommandAlreadyRunningException e) {
+            Log.d(TAG, "mergeWithFFMpeg: Video saving FAILED" + e.getMessage());
         }
     }
 }

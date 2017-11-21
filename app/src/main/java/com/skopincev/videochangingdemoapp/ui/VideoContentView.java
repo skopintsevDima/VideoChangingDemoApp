@@ -138,6 +138,15 @@ public class VideoContentView extends RelativeLayout implements
         }
     }
 
+    public void hideMediaControls() {
+        if (mediaController == null) {
+            return;
+        }
+        if (controllerAnchor != null && mediaController.isShowing()) {
+            mediaController.hide();
+        }
+    }
+
     /**
      * Calc size of the View Layout depending on the video size
      */
@@ -332,7 +341,7 @@ public class VideoContentView extends RelativeLayout implements
     public void onCompletion(MediaPlayer mp) {
         Log.d(TAG, "onCompletion");
         playbackStateChangeListener.setStopState();
-        showMediaControls();
+        hideMediaControls();
     }
 
     @Override

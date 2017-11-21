@@ -13,6 +13,10 @@
 #include <string.h>
 #include <android/log.h>
 #include <pthread.h>
+#include "SuperpoweredDecoder.h"
+#include "SuperpoweredRecorder.h"
+
+static const char *TAG = "AudioProcessing";
 
 static JNIEnv *javaEnvironment;
 
@@ -92,6 +96,90 @@ double NDKAudioPlayer::getProgress() {
     return player->positionMs / player->durationMs;
 }
 
+static void saveTimeStretchedAudio(const char *inputPath, const char *outputPath, int cents) {
+    // Open the input file.
+    SuperpoweredDecoder *decoder = new SuperpoweredDecoder();
+    const char *openError = decoder->open(inputPath, false, 0, 0);
+    if (openError) {
+        __android_log_print(ANDROID_LOG_DEBUG, TAG, "Input file name: %s", inputPath);
+        delete decoder;
+        return;
+    };
+
+    // Create the output WAVE file.
+    FILE *fd = createWAV(outputPath, decoder->samplerate, 2);
+    if (!fd) {
+        __android_log_write(ANDROID_LOG_DEBUG, TAG, "File not created");
+        delete decoder;
+        return;
+    };
+
+    /*
+     Due to it's nature, a time stretcher can not operate with fixed buffer sizes.
+     This problem can be solved with variable size buffer chains (complex) or FIFO buffering (easier).
+
+     Memory bandwidth on mobile devices is way lower than on desktop (laptop), so we need to use variable size buffer chains here.
+     This solution provides almost 2x performance increase over FIFO buffering!
+    */
+    SuperpoweredTimeStretching *timeStretcher = new SuperpoweredTimeStretching(decoder->samplerate);
+    timeStretcher->setRateAndPitchShiftCents(1.0f, cents);
+    // This buffer list will receive the time-stretched samples.
+    SuperpoweredAudiopointerList *outputBuffers = new SuperpoweredAudiopointerList(8, 16);
+
+    // Create a buffer for the 16-bit integer samples.
+    short int *intBuffer = (short int *)malloc(decoder->samplesPerFrame * 2 * sizeof(short int) + 32768);
+
+    // Processing.
+    while (true) {
+        // Decode one frame. samplesDecoded will be overwritten with the actual decoded number of samples.
+        unsigned int samplesDecoded = decoder->samplesPerFrame;
+        if (decoder->decode(intBuffer, &samplesDecoded) == SUPERPOWEREDDECODER_ERROR) break;
+        if (samplesDecoded < 1) break;
+
+        // Create an input buffer for the time stretcher.
+        SuperpoweredAudiobufferlistElement inputBuffer;
+        inputBuffer.samplePosition = decoder->samplePosition;
+        inputBuffer.startSample = 0;
+        inputBuffer.samplesUsed = 0;
+        inputBuffer.endSample = samplesDecoded; // <-- Important!
+        inputBuffer.buffers[0] = SuperpoweredAudiobufferPool::getBuffer(samplesDecoded * 8 + 64);
+        inputBuffer.buffers[1] = inputBuffer.buffers[2] = inputBuffer.buffers[3] = NULL;
+
+        // Convert the decoded PCM samples from 16-bit integer to 32-bit floating point.
+        SuperpoweredShortIntToFloat(intBuffer, (float *)inputBuffer.buffers[0], samplesDecoded);
+
+        // Time stretching.
+        timeStretcher->process(&inputBuffer, outputBuffers);
+
+        // Do we have some output?
+        if (outputBuffers->makeSlice(0, outputBuffers->sampleLength)) {
+
+            while (true) { // Iterate on every output slice.
+                // Get pointer to the output samples.
+                int numSamples = 0;
+                float *timeStretchedAudio = (float *)outputBuffers->nextSliceItem(&numSamples);
+                if (!timeStretchedAudio) break;
+
+                // Convert the time stretched PCM samples from 32-bit floating point to 16-bit integer.
+                SuperpoweredFloatToShortInt(timeStretchedAudio, intBuffer, numSamples);
+
+                // Write the audio to disk.
+                fwrite(intBuffer, 1, numSamples * 4, fd);
+            };
+
+            // Clear the output buffer list.
+            outputBuffers->clear();
+        };
+    };
+
+    // Cleanup.
+    closeWAV(fd);
+    delete decoder;
+    delete timeStretcher;
+    delete outputBuffers;
+    free(intBuffer);
+}
+
 static NDKAudioPlayer *audioPlayer;
 
 extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_initAudioPlayer(JNIEnv *jniEnv, jobject __unused obj, jint samplerate, jint buffersize, jstring audioFilePath, jint audioFileOffset, jint audioFileLength) {
@@ -132,4 +220,14 @@ extern "C" JNIEXPORT jdouble Java_com_skopincev_videochangingdemoapp_ui_MainActi
         return audioPlayer->getProgress();
     else
         return 0;
+}
+
+extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivity_saveChangedAudio(JNIEnv *jniEnv, jobject instance, jstring inputFile, jstring outputFile, jint cents) {
+    const char *inputPath = jniEnv->GetStringUTFChars(inputFile, JNI_FALSE);
+    const char *outputPath = jniEnv->GetStringUTFChars(outputFile, JNI_FALSE);
+
+    saveTimeStretchedAudio(inputPath, outputPath, cents);
+
+    jniEnv->ReleaseStringUTFChars(inputFile, inputPath);
+    jniEnv->ReleaseStringUTFChars(outputFile, outputPath);
 }

@@ -8,7 +8,6 @@ import android.database.Cursor;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
-import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -33,10 +32,18 @@ import com.github.hiteshsondhi88.libffmpeg.exceptions.FFmpegCommandAlreadyRunnin
 import com.github.hiteshsondhi88.libffmpeg.exceptions.FFmpegNotSupportedException;
 import com.skopincev.videochangingdemoapp.BundleConst;
 import com.skopincev.videochangingdemoapp.R;
+import com.skopincev.videochangingdemoapp.media_processing.AACEncoder;
 import com.skopincev.videochangingdemoapp.media_processing.AudioExtractor;
+import com.skopincev.videochangingdemoapp.media_processing.MediaMerger;
 import com.skopincev.videochangingdemoapp.media_processing.OnPlaybackStateChangeListener;
+import com.skopincev.videochangingdemoapp.media_processing.OnResultListener;
+
+import org.apache.commons.io.FileUtils;
 
 import java.io.File;
+import java.io.IOException;
+
+import static com.skopincev.videochangingdemoapp.media_processing.OnResultListener.SUCCESS;
 
 public class MainActivity extends AppCompatActivity implements OnPlaybackStateChangeListener {
 
@@ -57,8 +64,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     private native void onPositionChanged(double percentage);
     private native void onStopPlaying();
     private native double getAudioPlayerProgress();
-
-    private FFmpeg ffmpeg = null;
+    private native void saveChangedAudio(String inputFile, String outputFile, int cents);
 
     private SeekBar sbPitchShift;
     private TextView tvSpeed;
@@ -68,11 +74,13 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     private ProgressBar pbExtracting;
     private ProgressBar pbSaving;
     private RelativeLayout rlLayoutContainer;
+    private Menu menu;
 
     private String samplerateString = null;
     private String buffersizeString = null;
     private File currentVideoFile = null;
     private File currentAudioFile = null;
+    private FFmpeg ffmpeg = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -119,11 +127,23 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     }
 
     private void init() {
+        deleteAllWorkingFiles();
+
         initSuperpowered();
 
         initFFMpeg();
 
         initUI();
+    }
+
+    private void deleteAllWorkingFiles(){
+        File filesDir = new File(getFilesDir().getParent());
+        if (filesDir.isDirectory()) {
+            String[] children = filesDir.list();
+            for (int i = 0; i < children.length; i++) {
+                new File(filesDir, children[i]).delete();
+            }
+        }
     }
 
     private void initSuperpowered() {
@@ -173,11 +193,11 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     }
 
     private void deleteCurrentMediaFiles() {
-        if (currentVideoFile != null && currentVideoFile.exists()){
-            Log.d(TAG, "deleteCurrentMediaFiles: Current video file " + (currentVideoFile.delete() ? "deleted" : "not deleted"));
-        }
-        if (currentAudioFile != null && currentAudioFile.exists()){
-            Log.d(TAG, "deleteCurrentMediaFiles: Current audio file " + (currentAudioFile.delete() ? "deleted" : "not deleted"));
+        File filesDir = getFilesDir();
+        try {
+            FileUtils.deleteDirectory(filesDir);
+        } catch (IOException e) {
+            Log.d(TAG, e.getMessage());
         }
     }
 
@@ -222,13 +242,15 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         }
     }
 
-    private void setExtractingMode(boolean mode) {
-        if (mode){
+    private void setExtractingMode(boolean extracting) {
+        if (extracting){
             pbExtracting.setVisibility(View.VISIBLE);
         } else {
             pbExtracting.setVisibility(View.INVISIBLE);
         }
-        pbExtracting.setEnabled(mode);
+        pbExtracting.setEnabled(extracting);
+        menu.setGroupVisible(0, !extracting);
+        menu.setGroupEnabled(0, !extracting);
     }
 
     private String getRealPathFromURI(Uri contentURI) {
@@ -326,6 +348,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_main, menu);
+        this.menu = menu;
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -337,11 +360,13 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                 return true;
             }
             case R.id.mi_save_video:{
-                if (currentVideoFile != null && currentVideoFile.exists()){
+                if (currentVideoFile != null && currentVideoFile.exists() &&
+                        currentAudioFile != null && currentAudioFile.exists()){
                     String currentVideoFilePath = currentVideoFile.getAbsolutePath();
+                    String currentAudioFilePath = currentAudioFile.getAbsolutePath();
                     String resultFilePath = getExternalFilesDir(null) + "/resultVideo.mp4";
                     new File(resultFilePath).delete();
-                    saveVideo(currentVideoFilePath, resultFilePath, 2);
+                    saveVideo(currentVideoFilePath, currentAudioFilePath, resultFilePath);
                 }
                 return true;
             }
@@ -351,9 +376,37 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         }
     }
 
-    private void saveVideo(String videoFilePath, String resultFilePath, float speed) {
-        String cmd = "[0:v]fps=50.0, setpts=0.5*PTS[v];[0:a]atempo=2.0[a] -map [v] -map [a] -preset ultrafast /storage/emulated/0/VID-20170716-VidRotate1.mp4";
+    private void saveVideo(final String videoFilePath, String audioFilePath, final String resultFilePath){
+        //Set saving mode
+        setSavingMode(true);
 
+        //Save pitch shifted audio
+        final String resultAudioFilePath_Wave = getExternalFilesDir(null) + "/resultAudio_wave.wav";
+        new File(resultAudioFilePath_Wave).delete();
+        int cents = sbPitchShift.getProgress() - BundleConst.INIT_CENTS;
+        saveChangedAudio(audioFilePath, resultAudioFilePath_Wave, cents);
+
+        //Convert pitch shifted audio file from WAVE into AAC audio file
+        final String resultAudioFilePath = getExternalFilesDir(null) + "/resultAudio.aac";
+        new File(resultAudioFilePath).delete();
+        AACEncoder encoder = new AACEncoder();
+        encoder.encodeWaveToAac(ffmpeg, resultAudioFilePath_Wave, resultAudioFilePath, new OnResultListener() {
+            @Override
+            public void onOperationFinished(int resultCode) {
+                if (resultCode == SUCCESS){
+                    //Merge pitch shifted audio and video
+                    MediaMerger merger = new MediaMerger();
+                    merger.mergeWithMuxer(resultAudioFilePath, videoFilePath, resultFilePath);
+                    Log.d(TAG, "Video saving SUCCEED");
+                } else {
+                    Log.d(TAG, "Video saving FAILED");
+                }
+                setSavingMode(false);
+            }
+        });
+    }
+
+    private void saveVideoWithTimeStretching(String videoFilePath, String resultFilePath, float speed) {
         float factor = 1 / speed;
         String[] commands =
                 {       "-y",
@@ -372,50 +425,54 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                 @Override
                 public void onStart() {
                     super.onStart();
-                    Log.d(TAG, "saveVideo: Video saving STARTED\n");
+                    Log.d(TAG, "saveVideoWithTimeStretching: Video saving STARTED\n");
                     setSavingMode(true);
                 }
 
                 @Override
                 public void onFinish() {
                     super.onFinish();
-                    Log.d(TAG, "saveVideo: Video saving FINISHED\n");
+                    Log.d(TAG, "saveVideoWithTimeStretching: Video saving FINISHED\n");
                     setSavingMode(false);
                 }
 
                 @Override
                 public void onProgress(String message) {
                     super.onProgress(message);
-                    Log.d(TAG, "saveVideo: Video saving progress:\n" + message);
+                    Log.d(TAG, "saveVideoWithTimeStretching: Video saving progress:\n" + message);
                 }
 
                 @Override
                 public void onSuccess(String message) {
                     super.onSuccess(message);
-                    Log.d(TAG, "saveVideo: Video saving SUCCEED\n" + message);
+                    Log.d(TAG, "saveVideoWithTimeStretching: Video saving SUCCEED\n" + message);
                 }
 
                 @Override
                 public void onFailure(String message) {
                     super.onFailure(message);
-                    Log.d(TAG, "saveVideo: Video saving FAILED\n" + message);
+                    Log.d(TAG, "saveVideoWithTimeStretching: Video saving FAILED\n" + message);
                 }
             });
         } catch (FFmpegCommandAlreadyRunningException e) {
-            Log.d(TAG, "saveVideo: Video saving FAILED" + e.getMessage());
+            Log.d(TAG, "saveVideoWithTimeStretching: Video saving FAILED" + e.getMessage());
         }
     }
 
     private void setSavingMode(boolean saving) {
         if (saving){
+            videoView.hideMediaControls();
             rlLayoutContainer.setVisibility(View.INVISIBLE);
             pbSaving.setVisibility(View.VISIBLE);
-            pbSaving.setEnabled(true);
+            Log.d(TAG, "Video saving STARTED");
         } else {
             rlLayoutContainer.setVisibility(View.VISIBLE);
             pbSaving.setVisibility(View.INVISIBLE);
-            pbSaving.setEnabled(false);
+            Log.d(TAG, "Video saving FINISHED");
         }
+        pbSaving.setEnabled(saving);
+        menu.setGroupVisible(0, !saving);
+        menu.setGroupEnabled(0, !saving);
     }
 
     private boolean tracking = false;
@@ -435,8 +492,6 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                                 Log.d(TAG, "Audio faster for: " + String.format("%f", audioFasterFor) + " %");
                             else
                                 Log.d(TAG, "Video faster for: " + String.format("%f", -audioFasterFor) + " %");
-//                            Log.d(TAG, "Audio progress: " + String.format("%f", audioPercentage));
-//                            Log.d(TAG, "Video progress: " + String.format("%f", videoPercentage));
 
                             try {
                                 Thread.sleep(2000);
