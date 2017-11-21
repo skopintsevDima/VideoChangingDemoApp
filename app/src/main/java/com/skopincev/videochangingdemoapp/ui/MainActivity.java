@@ -297,7 +297,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                     currentVideoFile = new File(extractedVideoFilePath);
                     if (currentVideoFile.exists()){
                         videoView.initMediaPlayer(extractedVideoFilePath, MainActivity.this);
-                        initPlayersPositionTracking();
+//                        initPlayersPositionTracking();
                     }
                 }
 
@@ -391,7 +391,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         final String resultAudioFilePath = getExternalFilesDir(null) + "/resultAudio.aac";
         deleteSameFile(resultAudioFilePath);
         AACEncoder encoder = new AACEncoder();
-        encoder.encodeWaveToAac(ffmpeg, resultAudioFilePath_Wave, resultAudioFilePath, new OnResultListener() {
+        encoder.convertToAAC(resultAudioFilePath_Wave, resultAudioFilePath, new OnResultListener() {
             @Override
             public void onOperationFinished(int resultCode) {
                 if (resultCode == SUCCESS){
@@ -405,7 +405,12 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                 } else {
                     Log.d(TAG, "Video saving FAILED");
                 }
-                setSavingMode(false);
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        setSavingMode(false);
+                    }
+                });
             }
         });
     }
@@ -450,7 +455,6 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                 Environment.DIRECTORY_MOVIES), appDirectoryName);
         if (!appFilesDir.exists())
             appFilesDir.mkdirs();
-        // TODO: 21.11.2017 Change video file name
         int cents = sbPitchShift.getProgress() - BundleConst.INIT_CENTS;
         File video = new File(appFilesDir, currentVideoFileName + String.format("_cents(%d)", cents) + ".mp4");
         moveVideoToGallery(videoFile.getPath(), video.getPath());

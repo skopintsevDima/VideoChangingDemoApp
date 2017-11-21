@@ -5,7 +5,6 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
-import android.os.Environment;
 import android.util.Log;
 
 import com.github.hiteshsondhi88.libffmpeg.ExecuteBinaryResponseHandler;
@@ -17,8 +16,6 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
-import static com.skopincev.videochangingdemoapp.media_processing.OnResultListener.*;
 
 /**
  * Created by skopi on 20.11.2017.
@@ -94,7 +91,7 @@ public class AACEncoder {
 
                     MediaMuxer muxer = new MediaMuxer(outputFile.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
 
-                    MediaFormat outputFormat = MediaFormat.createAudioFormat(COMPRESSED_AUDIO_FILE_MIME_TYPE,SAMPLING_RATE, 1);
+                    MediaFormat outputFormat = MediaFormat.createAudioFormat(COMPRESSED_AUDIO_FILE_MIME_TYPE, SAMPLING_RATE, 2);
                     outputFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
                     outputFormat.setInteger(MediaFormat.KEY_BIT_RATE, COMPRESSED_AUDIO_FILE_BIT_RATE);
                     outputFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 16384);
@@ -112,7 +109,7 @@ public class AACEncoder {
                     double presentationTimeUs = 0;
                     int audioTrackIdx = 0;
                     int totalBytesRead = 0;
-                    int percentComplete = 0;
+                    int percentComplete;
                     do {
                         int inputBufIndex = 0;
                         while (inputBufIndex != -1 && hasMoreData) {
@@ -123,7 +120,7 @@ public class AACEncoder {
                                 dstBuf.clear();
 
                                 int bytesRead = fis.read(tempBuffer, 0, dstBuf.limit());
-                                Log.e("bytesRead","Readed "+bytesRead);
+                                Log.e("bytesRead","Readed " + bytesRead);
                                 if (bytesRead == -1) { // -1 implies EOS
                                     hasMoreData = false;
                                     codec.queueInputBuffer(inputBufIndex, 0, 0, (long) presentationTimeUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
@@ -131,7 +128,7 @@ public class AACEncoder {
                                     totalBytesRead += bytesRead;
                                     dstBuf.put(tempBuffer, 0, bytesRead);
                                     codec.queueInputBuffer(inputBufIndex, 0, bytesRead, (long) presentationTimeUs, 0);
-                                    presentationTimeUs = 1000000l * (totalBytesRead / 2) / SAMPLING_RATE;
+                                    presentationTimeUs = 1000000l * (totalBytesRead / 4) / SAMPLING_RATE;
                                 }
                             }
                         }
@@ -171,14 +168,14 @@ public class AACEncoder {
                     Log.v(TAG, "Compression done ...");
                 } catch (FileNotFoundException e) {
                     Log.e(TAG, "File not found!", e);
-                    resultListener.onOperationFinished(FAILED);
+                    resultListener.onOperationFinished(OnResultListener.FAILED);
                 } catch (IOException e) {
                     Log.e(TAG, "IO exception!", e);
-                    resultListener.onOperationFinished(FAILED);
+                    resultListener.onOperationFinished(OnResultListener.FAILED);
                 }
 
                 //mStop = false;
-                resultListener.onOperationFinished(SUCCESS);
+                resultListener.onOperationFinished(OnResultListener.SUCCESS);
             }
         });
 
@@ -221,14 +218,14 @@ public class AACEncoder {
                 public void onSuccess(String message) {
                     super.onSuccess(message);
                     Log.d(TAG, "encodeWaveToAac: Audio converting SUCCEED\n" + message);
-                    resultListener.onOperationFinished(SUCCESS);
+                    resultListener.onOperationFinished(OnResultListener.SUCCESS);
                 }
 
                 @Override
                 public void onFailure(String message) {
                     super.onFailure(message);
                     Log.d(TAG, "encodeWaveToAac: Audio converting FAILED\n" + message);
-                    resultListener.onOperationFinished(FAILED);
+                    resultListener.onOperationFinished(OnResultListener.FAILED);
                 }
             });
         } catch (FFmpegCommandAlreadyRunningException e) {
