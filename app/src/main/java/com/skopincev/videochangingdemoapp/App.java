@@ -11,7 +11,6 @@ import java.io.File;
 public class App extends Application {
     @Override
     public void onTerminate() {
-        // TODO: 15.11.2017 delete all from files/ dir
         // TODO: 21.11.2017 clean code from comments
         super.onTerminate();
     }

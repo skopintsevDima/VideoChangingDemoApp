@@ -43,8 +43,6 @@ import org.apache.commons.io.FileUtils;
 import java.io.File;
 import java.io.IOException;
 
-import static com.skopincev.videochangingdemoapp.media_processing.OnResultListener.SUCCESS;
-
 public class MainActivity extends AppCompatActivity implements OnPlaybackStateChangeListener {
 
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -127,23 +125,13 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     }
 
     private void init() {
-        deleteAllWorkingFiles();
+        cleanFilesDirectory();
 
         initSuperpowered();
 
         initFFMpeg();
 
         initUI();
-    }
-
-    private void deleteAllWorkingFiles(){
-        File filesDir = new File(getFilesDir().getParent());
-        if (filesDir.isDirectory()) {
-            String[] children = filesDir.list();
-            for (int i = 0; i < children.length; i++) {
-                new File(filesDir, children[i]).delete();
-            }
-        }
     }
 
     private void initSuperpowered() {
@@ -178,7 +166,6 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     }
 
     private void chooseVideoFile(){
-        deleteCurrentMediaFiles();
         setUiDefaultConfig();
 
         Intent pickIntent = new Intent(Intent.ACTION_PICK);
@@ -192,12 +179,15 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         videoView.pause();
     }
 
-    private void deleteCurrentMediaFiles() {
-        File filesDir = getFilesDir();
-        try {
-            FileUtils.deleteDirectory(filesDir);
-        } catch (IOException e) {
-            Log.d(TAG, e.getMessage());
+    private void cleanFilesDirectory() {
+        File filesDir = getExternalFilesDir(null);
+        if (filesDir.isDirectory())
+        {
+            String[] children = filesDir.list();
+            for (int i = 0; i < children.length; i++)
+            {
+                new File(filesDir, children[i]).delete();
+            }
         }
     }
 
@@ -538,7 +528,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        deleteCurrentMediaFiles();
+        cleanFilesDirectory();
         tracking = false;
     }
 }
