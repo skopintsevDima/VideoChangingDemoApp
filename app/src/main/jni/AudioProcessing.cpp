@@ -2,7 +2,7 @@
 // Created by skopi on 07.11.2017.
 //
 
-#include "AudioPlayer.h"
+#include "AudioProcessing.h"
 #include <SuperpoweredSimple.h>
 #include <SuperpoweredCPU.h>
 #include <jni.h>
@@ -178,6 +178,10 @@ static void saveTimeStretchedAudio(const char *inputPath, const char *outputPath
     delete timeStretcher;
     delete outputBuffers;
     free(intBuffer);
+}
+
+static void encodeWaveToAac(const char* inputFile){
+
 }
 
 static NDKAudioPlayer *audioPlayer;

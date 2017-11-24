@@ -3,6 +3,7 @@ package com.skopincev.videochangingdemoapp.media_processing;
 import android.annotation.SuppressLint;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
+import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.util.Log;
@@ -12,6 +13,7 @@ import com.github.hiteshsondhi88.libffmpeg.FFmpeg;
 import com.github.hiteshsondhi88.libffmpeg.exceptions.FFmpegCommandAlreadyRunningException;
 
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -24,6 +26,7 @@ import java.nio.ByteBuffer;
 public class AACEncoder {
 
     public static final String TAG = AACEncoder.class.getSimpleName();
+    private static final java.lang.String AUDIO = "audio/";
 
     public static MediaFormat makeAACCodecSpecificData(int audioProfile, int sampleRate,
                                                 int channelConfig)
@@ -71,7 +74,6 @@ public class AACEncoder {
 
     public static final String COMPRESSED_AUDIO_FILE_MIME_TYPE = "audio/mp4a-latm";
     public static final int COMPRESSED_AUDIO_FILE_BIT_RATE = 320000; // 320kbps
-    public static final int SAMPLING_RATE = 48000;
     public static final int BUFFER_SIZE = 48000;
     public static final int CODEC_TIMEOUT_IN_MS = 5000;
 
@@ -89,9 +91,30 @@ public class AACEncoder {
                     File outputFile = new File(outputFilePath);
                     if (outputFile.exists()) outputFile.delete();
 
+                    //TEST CODE
+                    MediaExtractor audioExtractor = new MediaExtractor();
+                    audioExtractor.setDataSource(inputFilePath);
+
+                    int channel = 0;
+                    int sampleRate = 0;
+                    for (int i = 0; i < audioExtractor.getTrackCount(); i++)
+                    {
+                        MediaFormat format = audioExtractor.getTrackFormat(i);
+                        String mime = format.getString(MediaFormat.KEY_MIME);
+                        if (mime.startsWith(AUDIO))
+                        {
+                            audioExtractor.selectTrack(i);
+
+                            sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
+                            channel = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
+                            break;
+                        }
+                    }
+                    //TEST CODE
+
                     MediaMuxer muxer = new MediaMuxer(outputFile.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
 
-                    MediaFormat outputFormat = MediaFormat.createAudioFormat(COMPRESSED_AUDIO_FILE_MIME_TYPE, SAMPLING_RATE, 2);
+                    MediaFormat outputFormat = MediaFormat.createAudioFormat(COMPRESSED_AUDIO_FILE_MIME_TYPE, sampleRate, channel);
                     outputFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
                     outputFormat.setInteger(MediaFormat.KEY_BIT_RATE, COMPRESSED_AUDIO_FILE_BIT_RATE);
                     outputFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 16384);
@@ -128,7 +151,7 @@ public class AACEncoder {
                                     totalBytesRead += bytesRead;
                                     dstBuf.put(tempBuffer, 0, bytesRead);
                                     codec.queueInputBuffer(inputBufIndex, 0, bytesRead, (long) presentationTimeUs, 0);
-                                    presentationTimeUs = 1000000l * (totalBytesRead / 4) / SAMPLING_RATE;
+                                    presentationTimeUs = 1000000l * (totalBytesRead / 4) / sampleRate;
                                 }
                             }
                         }
@@ -232,5 +255,4 @@ public class AACEncoder {
             Log.d(TAG, "encodeWaveToAac: Audio converting FAILED" + e.getMessage());
         }
     }
-
 }
