@@ -6,6 +6,6 @@ package com.skopincev.videochangingdemoapp.media_processing;
 
 public interface OnPlaybackStateChangeListener {
     void setPlayState(boolean play);
-    void setNewPositionState(double percentage);
+    void setNewPositionState(double position);
     void setStopState();
 }

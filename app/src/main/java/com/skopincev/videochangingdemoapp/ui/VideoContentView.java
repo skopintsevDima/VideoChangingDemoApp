@@ -78,11 +78,13 @@ public class VideoContentView extends RelativeLayout implements
     }
 
     private void init() {
+        Log.d(TAG, "init: Called");
         LayoutInflater inflater = (LayoutInflater) getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         inflater.inflate(R.layout.view_video_content, this);
     }
 
     public void initMediaPlayer(String videoPath, OnPlaybackStateChangeListener playbackStateChangeListener) {
+        Log.d(TAG, "initMediaPlayer: Called");
         this.videoPath = videoPath;
         this.playbackStateChangeListener = playbackStateChangeListener;
 
@@ -116,6 +118,7 @@ public class VideoContentView extends RelativeLayout implements
     }
 
     private void releaseMediaPlayer() {
+        Log.d(TAG, "releaseMediaPlayer: Called");
         if (mediaPlayer != null) {
             try {
                 mediaPlayer.stop();
@@ -128,6 +131,7 @@ public class VideoContentView extends RelativeLayout implements
     }
 
     private void showMediaControls() {
+        Log.d(TAG, "showMediaControls: Called");
         if (mediaController == null) {
             return;
         }
@@ -151,6 +155,7 @@ public class VideoContentView extends RelativeLayout implements
      * Calc size of the View Layout depending on the video size
      */
     private void handleAspectRatio(MediaPlayer mediaPlayer) {
+        Log.d(TAG, "handleAspectRatio: Called");
 
         if (textureView == null) {
             textureView = ((Activity) getContext()).findViewById(R.id.txv_video_surface_view);
@@ -194,6 +199,8 @@ public class VideoContentView extends RelativeLayout implements
     /**MediaPlayer.OnPreparedListener interface method */
     @Override
     public void onPrepared(MediaPlayer mediaPlayer) {
+        Log.d(TAG, "onPrepared: Called");
+
         handleAspectRatio(mediaPlayer);
 
         if (seekbar == null) {
@@ -207,7 +214,7 @@ public class VideoContentView extends RelativeLayout implements
             mediaController.setEnabled(true);
         }
 
-        seekTo(currentPosition);
+        seekTo(0);
         if (textureView.isAvailable()) {
             onSurfaceTextureAvailable(textureView.getSurfaceTexture(), textureView.getWidth(), textureView.getHeight());
         }
@@ -219,6 +226,7 @@ public class VideoContentView extends RelativeLayout implements
     }
 
     public void clear(){
+        Log.d(TAG, "clear: Called");
         if (mediaController != null) {
             mediaController.hide();
             mediaController.removeAllViews();
@@ -230,6 +238,7 @@ public class VideoContentView extends RelativeLayout implements
 
     @Override
     protected void onDetachedFromWindow() {
+        Log.d(TAG, "onDetachedFromWindow: Called");
         clear();
         super.onDetachedFromWindow();
     }
@@ -237,6 +246,7 @@ public class VideoContentView extends RelativeLayout implements
     /** MediaController.MediaPlayerControl interface method */
     @Override
     public void start() {
+        Log.d(TAG, "start: Called");
         if (mediaPlayer != null) {
             mediaPlayer.start();
             playbackStateChangeListener.setPlayState(true);
@@ -246,7 +256,7 @@ public class VideoContentView extends RelativeLayout implements
     /** MediaController.MediaPlayerControl interface method */
     @Override
     public void pause() {
-        Log.d(TAG, "pause() ");
+        Log.d(TAG, "pause: Called");
         if (mediaPlayer != null && mediaPlayer.isPlaying()) {
             mediaPlayer.pause();
             playbackStateChangeListener.setPlayState(false);
@@ -263,6 +273,7 @@ public class VideoContentView extends RelativeLayout implements
     /** MediaController.MediaPlayerControl interface method */
     @Override
     public int getCurrentPosition() {
+        Log.d(TAG, "getCurrentPosition: Called");
         if (mediaPlayer != null) {
             try {
                 currentPosition = mediaPlayer.getCurrentPosition();
@@ -277,16 +288,18 @@ public class VideoContentView extends RelativeLayout implements
     /** MediaController.MediaPlayerControl interface method */
     @Override
     public void seekTo(int pos) {
+        Log.d(TAG, "seekTo: Called");
         if (mediaPlayer != null) {
+            playbackStateChangeListener.setNewPositionState((double)pos);
             mediaPlayer.seekTo(pos);
-            playbackStateChangeListener.setNewPositionState((double)pos / videoDuration);
-            Log.d("VideoPP", "Video player position: " + String.format("%f", (double)pos / videoDuration));
+            ((MainActivity)playbackStateChangeListener).logPlayersData();
         }
     }
 
     /** MediaController.MediaPlayerControl interface method */
     @Override
     public boolean isPlaying() {
+        Log.d(TAG, "isPlaying: Called");
         if (mediaPlayer != null) {
             try {
                 return mediaPlayer.isPlaying();
@@ -366,4 +379,10 @@ public class VideoContentView extends RelativeLayout implements
 
     @Override
     public void onSurfaceTextureUpdated(SurfaceTexture surface) {}
+
+    public void restart() {
+        if (mediaPlayer != null){
+            mediaPlayer.seekTo(0);
+        }
+    }
 }

@@ -62,8 +62,9 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     private native void onPlayPause(boolean play);
     private native void onCentsChanged(int cents);
     private native void onTempoChanged(double tempo);
-    private native void onPositionChanged(double percentage);
+    private native void onPositionChanged(double position);
     private native void onStopPlaying();
+    private native double getAudioPlayerDuration();
     private native double getAudioPlayerProgress();
     private native void saveChangedAudio(String inputFile, String outputFile, int cents);
 
@@ -297,7 +298,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                     currentVideoFile = new File(extractedVideoFilePath);
                     if (currentVideoFile.exists()){
                         videoView.initMediaPlayer(extractedVideoFilePath, MainActivity.this);
-//                        initPlayersPositionTracking();
+                        initPlayersPositionTracking();
                     }
                 }
 
@@ -332,7 +333,8 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-                videoView.seekTo(0);
+                videoView.restart();
+                onPositionChanged(0);
             }
         });
 
@@ -539,15 +541,8 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                 while (!isDestroyed()){
                     while (tracking){
                         if (videoView != null) {
-                            double videoPercentage = (double) videoView.getCurrentPosition() / videoView.getDuration();
-                            double audioPercentage = getAudioPlayerProgress();
 
-                            double audioFasterFor = (audioPercentage - videoPercentage) * 100;
-
-                            if (audioFasterFor > 0)
-                                Log.d(TAG, "Audio faster for: " + String.format("%f", audioFasterFor) + " %");
-                            else
-                                Log.d(TAG, "Video faster for: " + String.format("%f", -audioFasterFor) + " %");
+                            logPlayersData();
 
                             try {
                                 Thread.sleep(2000);
@@ -561,6 +556,23 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         }).start();
     }
 
+    public void logPlayersData() {
+        double videoTrackDuration = videoView.getDuration();
+        double videoTrackPosition = videoView.getCurrentPosition();
+
+        double audioPlayerDuration = getAudioPlayerDuration();
+        double audioTrackPosition = getAudioPlayerProgress();
+
+        Log.d(TAG, "initPlayersPositionTracking: Audio track position = "
+                + String.format("%.2f", audioTrackPosition) + "/" + String.format("%.2f", audioPlayerDuration));
+        Log.d(TAG, "initPlayersPositionTracking: Video track position = "
+                + String.format("%.2f", videoTrackPosition) + "/" + String.format("%.2f", videoTrackDuration));
+        Log.d(TAG, "initPlayersPositionTracking: Diff between audio and video positions = "
+                + String.format("%.2f", audioTrackPosition - videoTrackPosition));
+        Log.d(TAG, "initPlayersPositionTracking: Audio track longer for "
+                + String.format("%.2f", audioPlayerDuration - videoTrackDuration));
+    }
+
     @Override
     public void setPlayState(boolean play) {
         onPlayPause(play);
@@ -568,8 +580,8 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     }
 
     @Override
-    public void setNewPositionState(double percentage) {
-        onPositionChanged(percentage);
+    public void setNewPositionState(double position) {
+        onPositionChanged(position);
     }
 
     @Override

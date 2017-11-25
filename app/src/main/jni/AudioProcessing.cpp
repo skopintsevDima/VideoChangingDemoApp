@@ -39,7 +39,7 @@ NDKAudioPlayer::NDKAudioPlayer(unsigned int samplerate, unsigned int buffersize,
 
     player = new SuperpoweredAdvancedAudioPlayer(&player , playerEventCallback, samplerate, 0);
     player->open(path, audioFileOffset, audioFileLength);
-    player->syncMode = SuperpoweredAdvancedAudioPlayerSyncMode_TempoAndBeat;
+    player->syncMode = SuperpoweredAdvancedAudioPlayerSyncMode_TempoAndBeat;//SuperpoweredAdvancedAudioPlayerSyncMode_Tempo
 
     audioSystem = new SuperpoweredAndroidAudioIO(samplerate, buffersize, false, true, audioProcessing, this, -1, SL_ANDROID_STREAM_MEDIA, buffersize * 2);
 }
@@ -78,8 +78,9 @@ void NDKAudioPlayer::onTempoChanged(double tempo) {
     player->setTempo(tempo, true);
 }
 
-void NDKAudioPlayer::onPositionChanged(double percentage) {
-    player->seek(percentage);
+void NDKAudioPlayer::onPositionChanged(double position) {
+    __android_log_write(ANDROID_LOG_DEBUG, TAG, "onPositionChanged");
+    player->setPosition(position, false, false);
     char msecString[64];
     snprintf(msecString, sizeof(msecString), "%g", player->positionMs / player->durationMs);
     char message[64] = "Audio player position: ";
@@ -93,7 +94,11 @@ void NDKAudioPlayer::onStop() {
 }
 
 double NDKAudioPlayer::getProgress() {
-    return player->positionMs / player->durationMs;
+    return player->positionMs;
+}
+
+double NDKAudioPlayer::getDuration() {
+    return player->durationMs;
 }
 
 static void saveTimeStretchedAudio(const char *inputPath, const char *outputPath, int cents) {
@@ -222,6 +227,13 @@ extern "C" JNIEXPORT void Java_com_skopincev_videochangingdemoapp_ui_MainActivit
 extern "C" JNIEXPORT jdouble Java_com_skopincev_videochangingdemoapp_ui_MainActivity_getAudioPlayerProgress(JNIEnv *jniEnv, jobject instance) {
     if (audioPlayer != NULL)
         return audioPlayer->getProgress();
+    else
+        return 0;
+}
+
+extern "C" JNIEXPORT jdouble Java_com_skopincev_videochangingdemoapp_ui_MainActivity_getAudioPlayerDuration(JNIEnv *jniEnv, jobject instance) {
+    if (audioPlayer != NULL)
+        return audioPlayer->getDuration();
     else
         return 0;
 }

@@ -26,8 +26,9 @@ public:
     void onPlayPause(bool play);
     void onCentsChanged(int cents);
     void onTempoChanged(double tempo);
-    void onPositionChanged(double percentage);
+    void onPositionChanged(double position);
     void onStop();
+    double getDuration();
     double getProgress();
 
 private:
