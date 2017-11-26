@@ -109,7 +109,7 @@ public class VideoContentView extends RelativeLayout implements
         }
 
         mediaPlayer.setScreenOnWhilePlaying(true);
-//        mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+        mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
         mediaPlayer.setOnPreparedListener(this);
         mediaPlayer.setOnErrorListener(this);
         mediaPlayer.setOnCompletionListener(this);
@@ -292,7 +292,6 @@ public class VideoContentView extends RelativeLayout implements
         if (mediaPlayer != null) {
             playbackStateChangeListener.setNewPositionState((double)pos);
             mediaPlayer.seekTo(pos);
-            ((MainActivity)playbackStateChangeListener).logPlayersData();
         }
     }
 

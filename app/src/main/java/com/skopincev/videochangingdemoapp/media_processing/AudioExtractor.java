@@ -38,7 +38,7 @@ public class AudioExtractor {
             audioExtractor.setDataSource(fileDescriptor);
             fileInputStream.close();
 
-            MediaMuxer muxer = null;
+            MediaMuxer muxer;
             int channel = 0;
             int mSampleRate = 0;
             for (int i = 0; i < audioExtractor.getTrackCount(); i++)
@@ -61,7 +61,7 @@ public class AudioExtractor {
             int audioTrack = muxer.addTrack(audioFormat);
 
             boolean sawEOS = false;
-            int offset = 100;
+            int offset = 0;
             int sampleSize = 256 * 1024;
             ByteBuffer audioBuffer = ByteBuffer.allocate(sampleSize);
             MediaCodec.BufferInfo audioBufferInfo = new MediaCodec.BufferInfo();
@@ -84,7 +84,6 @@ public class AudioExtractor {
                     audioBufferInfo.flags = audioExtractor.getSampleFlags();
                     muxer.writeSampleData(audioTrack, audioBuffer, audioBufferInfo);
                     audioExtractor.advance();
-
                 }
             }
 

@@ -130,7 +130,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     }
 
     private void init() {
-//        cleanFilesDirectory();
+        initPlayersPositionTracking();
 
         initSuperpowered();
 
@@ -297,8 +297,8 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                     //Configuring video player
                     currentVideoFile = new File(extractedVideoFilePath);
                     if (currentVideoFile.exists()){
+                        errorEliminated = false;
                         videoView.initMediaPlayer(extractedVideoFilePath, MainActivity.this);
-                        initPlayersPositionTracking();
                     }
                 }
 
@@ -534,6 +534,10 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     }
 
     private boolean tracking = false;
+    private double lastAudioTrackPosition;
+    private double lastVideoTrackPosition;
+    private int timeToSleep = 2000;
+    private boolean errorEliminated = false;
     private void initPlayersPositionTracking(){
         new Thread(new Runnable() {
             @Override
@@ -542,10 +546,32 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                     while (tracking){
                         if (videoView != null) {
 
-                            logPlayersData();
+                            double videoTrackDuration = videoView.getDuration();
+                            double videoTrackPosition = videoView.getCurrentPosition();
+
+                            double audioPlayerDuration = getAudioPlayerDuration();
+                            double audioTrackPosition = getAudioPlayerProgress();
+
+                            double diff = audioTrackPosition - videoTrackPosition;
+
+                            Log.d(TAG, "logPlayersData: Diff between audio track positions = "
+                                    + String.format("%.2f", lastAudioTrackPosition - audioTrackPosition + timeToSleep)
+                                    + "; Position: " + String.format("%.2f", audioTrackPosition));
+                            Log.d(TAG, "logPlayersData: Diff between video track positions = "
+                                    + String.format("%.2f", lastVideoTrackPosition - videoTrackPosition + timeToSleep)
+                                    + "; Position: " + String.format("%.2f", videoTrackPosition));
+                            Log.d(TAG, "logPlayersData: Diff between audio and video positions = "
+                                    + String.format("%.2f", diff));
+                            Log.d(TAG, "logPlayersData: Audio track longer for "
+                                    + String.format("%.2f", audioPlayerDuration - videoTrackDuration));
+
+                            lastVideoTrackPosition = videoTrackPosition;
+                            lastAudioTrackPosition = audioTrackPosition;
+
+                            reduceVideoError(diff, videoTrackPosition);
 
                             try {
-                                Thread.sleep(2000);
+                                Thread.sleep(timeToSleep);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }
@@ -556,27 +582,17 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         }).start();
     }
 
-    public void logPlayersData() {
-        double videoTrackDuration = videoView.getDuration();
-        double videoTrackPosition = videoView.getCurrentPosition();
-
-        double audioPlayerDuration = getAudioPlayerDuration();
-        double audioTrackPosition = getAudioPlayerProgress();
-
-        Log.d(TAG, "initPlayersPositionTracking: Audio track position = "
-                + String.format("%.2f", audioTrackPosition) + "/" + String.format("%.2f", audioPlayerDuration));
-        Log.d(TAG, "initPlayersPositionTracking: Video track position = "
-                + String.format("%.2f", videoTrackPosition) + "/" + String.format("%.2f", videoTrackDuration));
-        Log.d(TAG, "initPlayersPositionTracking: Diff between audio and video positions = "
-                + String.format("%.2f", audioTrackPosition - videoTrackPosition));
-        Log.d(TAG, "initPlayersPositionTracking: Audio track longer for "
-                + String.format("%.2f", audioPlayerDuration - videoTrackDuration));
+    private void reduceVideoError(double diff, double videoTrackPosition) {
+        if (diff > 0f && !errorEliminated){
+            videoView.seekTo((int)(videoTrackPosition + diff));
+            errorEliminated = true;
+        }
     }
 
     @Override
     public void setPlayState(boolean play) {
         onPlayPause(play);
-        tracking = true;
+        tracking = play;
     }
 
     @Override
@@ -587,6 +603,8 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     @Override
     public void setStopState() {
         onStopPlaying();
+        lastVideoTrackPosition = 0;
+        lastAudioTrackPosition = 0;
     }
 
     @Override

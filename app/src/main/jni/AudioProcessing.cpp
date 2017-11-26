@@ -79,13 +79,7 @@ void NDKAudioPlayer::onTempoChanged(double tempo) {
 }
 
 void NDKAudioPlayer::onPositionChanged(double position) {
-    __android_log_write(ANDROID_LOG_DEBUG, TAG, "onPositionChanged");
     player->setPosition(position, false, false);
-    char msecString[64];
-    snprintf(msecString, sizeof(msecString), "%g", player->positionMs / player->durationMs);
-    char message[64] = "Audio player position: ";
-    strcat(message, msecString);
-    __android_log_write(ANDROID_LOG_DEBUG, "AudioPP", message);
 }
 
 void NDKAudioPlayer::onStop() {
