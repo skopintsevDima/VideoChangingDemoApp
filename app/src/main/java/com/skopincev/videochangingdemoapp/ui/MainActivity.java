@@ -83,6 +83,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     private File currentVideoFile = null;
     private File currentAudioFile = null;
     private String currentVideoFileName = null;
+    private String selectedVideoFilePath = null;
     private FFmpeg ffmpeg = null;
 
     @Override
@@ -207,6 +208,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
 
                 String selectedVideoPath = getRealPathFromURI(selectedVideoUri);
                 if (selectedVideoPath != null) {
+                    selectedVideoFilePath = selectedVideoPath;
                     videoView.clear();
 
                     String[] temp = selectedVideoPath.split("/");
@@ -431,18 +433,25 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         } else {
             //Set saving mode
             setSavingMode(true);
-            String appDirectoryName = getApplicationName(this) + " Videos";
-            File appFilesDir = new File(Environment.getExternalStoragePublicDirectory(
-                    Environment.DIRECTORY_MOVIES), appDirectoryName);
-            if (!appFilesDir.exists())
-                appFilesDir.mkdirs();
-            int cents = sbPitchShift.getProgress() - BundleConst.INIT_CENTS;
-            File video = new File(appFilesDir, currentVideoFileName + String.format("_cents(%d)", cents) + ".mp4");
-            copyVideoToGallery(videoFilePath, video.getPath());
+
+            try {
+                String appDirectoryName = getApplicationName(this) + " Videos";
+                File appFilesDir = new File(Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_MOVIES), appDirectoryName);
+                if (!appFilesDir.exists())
+                    appFilesDir.mkdirs();
+                int cents = sbPitchShift.getProgress() - BundleConst.INIT_CENTS;
+                File video = new File(appFilesDir, currentVideoFileName + String.format("_cents(%d)", cents) + ".mp4");
+                copyVideoToGallery(selectedVideoFilePath, video.getPath());
+                sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(video)));
+
+                Toast.makeText(this, "Video saved", Toast.LENGTH_SHORT).show();
+            } catch (Exception e){
+                e.printStackTrace();
+                Toast.makeText(this, "Video saving failed", Toast.LENGTH_SHORT).show();
+            }
             //Set saving mode
             setSavingMode(false);
-
-            Toast.makeText(this, "Video saved", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -479,9 +488,9 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
             out.flush();
             out.close();
 
-            Log.d(TAG, "copyVideoToGallery: Video file moving SUCCEED");
+            Log.d(TAG, "copyVideoToGallery: Video file copying SUCCEED");
         } catch (Exception e) {
-            Log.d(TAG, "copyVideoToGallery: Video file moving FAILED\n" + e.getMessage());
+            Log.d(TAG, "copyVideoToGallery: Video file copying FAILED\n" + e.getMessage());
         }
 
     }
