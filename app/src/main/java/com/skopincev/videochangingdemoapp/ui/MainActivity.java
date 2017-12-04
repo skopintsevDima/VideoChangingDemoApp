@@ -297,6 +297,11 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
                     //Configuring video player
                     currentVideoFile = new File(extractedVideoFilePath);
                     if (currentVideoFile.exists()){
+                        //Create new video view
+                        flVideo.removeView(videoView);
+                        videoView = new VideoContentView(MainActivity.this);
+                        flVideo.addView(videoView);
+
                         errorEliminated = false;
                         videoView.initMediaPlayer(extractedVideoFilePath, MainActivity.this);
                     }
@@ -380,41 +385,73 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
     }
 
     private void saveVideo(final String videoFilePath, String audioFilePath, final String resultFilePath){
-        //Set saving mode
-        setSavingMode(true);
+        if (!isNoEffects()) {
+            //Set saving mode
+            setSavingMode(true);
 
-        //Save pitch shifted audio
-        final String resultAudioFilePath_Wave = getExternalFilesDir(null) + "/resultAudio_wave.wav";
-        deleteSameFile(resultAudioFilePath_Wave);
-        int cents = sbPitchShift.getProgress() - BundleConst.INIT_CENTS;
-        saveChangedAudio(audioFilePath, resultAudioFilePath_Wave, cents);
+            //Save pitch shifted audio
+            final String resultAudioFilePath_Wave = getExternalFilesDir(null) + "/resultAudio_wave.wav";
+            deleteSameFile(resultAudioFilePath_Wave);
+            int cents = sbPitchShift.getProgress() - BundleConst.INIT_CENTS;
+            saveChangedAudio(audioFilePath, resultAudioFilePath_Wave, cents);
 
-        //Convert pitch shifted audio file from WAVE into AAC audio file
-        final String resultAudioFilePath = getExternalFilesDir(null) + "/resultAudio.aac";
-        deleteSameFile(resultAudioFilePath);
-        AACEncoder encoder = new AACEncoder();
-        encoder.convertToAAC(resultAudioFilePath_Wave, resultAudioFilePath, new OnResultListener() {
-            @Override
-            public void onOperationFinished(int resultCode) {
-                if (resultCode == SUCCESS){
-                    //Merge pitch shifted audio and video
-                    MediaMerger merger = new MediaMerger();
-                    merger.mergeWithMuxer(resultAudioFilePath, videoFilePath, resultFilePath);
-                    Log.d(TAG, "Video saving SUCCEED");
+            //Convert pitch shifted audio file from WAVE into AAC audio file
+            final String resultAudioFilePath = getExternalFilesDir(null) + "/resultAudio.aac";
+            deleteSameFile(resultAudioFilePath);
+            AACEncoder encoder = new AACEncoder();
+            encoder.convertToAAC(resultAudioFilePath_Wave, resultAudioFilePath, new OnResultListener() {
+                @Override
+                public void onOperationFinished(int resultCode) {
+                    if (resultCode == SUCCESS) {
+                        //Merge pitch shifted audio and video
+                        MediaMerger merger = new MediaMerger();
+                        merger.mergeWithMuxer(resultAudioFilePath, videoFilePath, resultFilePath);
+                        Log.d(TAG, "Video saving SUCCEED");
 
-                    //Put video into Gallery
-                    addVideoToGallery(new File(resultFilePath));
-                } else {
-                    Log.d(TAG, "Video saving FAILED");
-                }
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        setSavingMode(false);
+                        //Put video into Gallery
+                        addVideoToGallery(new File(resultFilePath));
+
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                Toast.makeText(MainActivity.this, "Video saved", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    } else {
+                        Log.d(TAG, "Video saving FAILED");
                     }
-                });
-            }
-        });
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            setSavingMode(false);
+                        }
+                    });
+                }
+            });
+        } else {
+            //Set saving mode
+            setSavingMode(true);
+            String appDirectoryName = getApplicationName(this) + " Videos";
+            File appFilesDir = new File(Environment.getExternalStoragePublicDirectory(
+                    Environment.DIRECTORY_MOVIES), appDirectoryName);
+            if (!appFilesDir.exists())
+                appFilesDir.mkdirs();
+            int cents = sbPitchShift.getProgress() - BundleConst.INIT_CENTS;
+            File video = new File(appFilesDir, currentVideoFileName + String.format("_cents(%d)", cents) + ".mp4");
+            copyVideoToGallery(videoFilePath, video.getPath());
+            //Set saving mode
+            setSavingMode(false);
+
+            Toast.makeText(this, "Video saved", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private boolean isNoEffects() {
+        if (sbPitchShift.getProgress() - BundleConst.INIT_CENTS == 0){
+            return true;
+        } else {
+            return false;
+        }
     }
 
     private String getApplicationName(Context context) {
@@ -423,7 +460,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         return stringId == 0 ? applicationInfo.nonLocalizedLabel.toString() : context.getString(stringId);
     }
 
-    private void moveVideoToGallery(String inputPath, String outputPath) {
+    private void copyVideoToGallery(String inputPath, String outputPath) {
         InputStream in;
         OutputStream out;
         try {
@@ -442,11 +479,9 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
             out.flush();
             out.close();
 
-            // delete the original file
-            deleteSameFile(inputPath);
-            Log.d(TAG, "moveVideoToGallery: Video file moving SUCCEED");
+            Log.d(TAG, "copyVideoToGallery: Video file moving SUCCEED");
         } catch (Exception e) {
-            Log.d(TAG, "moveVideoToGallery: Video file moving FAILED\n" + e.getMessage());
+            Log.d(TAG, "copyVideoToGallery: Video file moving FAILED\n" + e.getMessage());
         }
 
     }
@@ -459,7 +494,9 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
             appFilesDir.mkdirs();
         int cents = sbPitchShift.getProgress() - BundleConst.INIT_CENTS;
         File video = new File(appFilesDir, currentVideoFileName + String.format("_cents(%d)", cents) + ".mp4");
-        moveVideoToGallery(videoFile.getPath(), video.getPath());
+        copyVideoToGallery(videoFile.getPath(), video.getPath());
+        // Delete the original file from FS
+        deleteSameFile(videoFile.getPath());
         sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(video)));
     }
 
