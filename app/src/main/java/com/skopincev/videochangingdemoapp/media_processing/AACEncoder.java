@@ -72,10 +72,10 @@ public class AACEncoder {
         return format;
     }
 
-    public static final String COMPRESSED_AUDIO_FILE_MIME_TYPE = "audio/mp4a-latm";
-    public static final int COMPRESSED_AUDIO_FILE_BIT_RATE = 320000; // 320kbps
-    public static final int BUFFER_SIZE = 48000;
-    public static final int CODEC_TIMEOUT_IN_MS = 5000;
+    private static final String COMPRESSED_AUDIO_FILE_MIME_TYPE = "audio/mp4a-latm";
+    private static final int COMPRESSED_AUDIO_FILE_BIT_RATE = 320000; // 320kbps
+    private static final int BUFFER_SIZE = 48000;
+    private static final int CODEC_TIMEOUT_IN_MS = 5000;
 
     public void convertToAAC(final String inputFilePath, final String outputFilePath, final OnResultListener resultListener){
 
@@ -83,7 +83,6 @@ public class AACEncoder {
             @SuppressLint("WrongConstant")
             @Override
             public void run() {
-                //android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
                 try {
                     File inputFile = new File(inputFilePath);
                     FileInputStream fis = new FileInputStream(inputFile);

@@ -37,6 +37,7 @@ import com.skopincev.videochangingdemoapp.R;
 import com.skopincev.videochangingdemoapp.media_processing.AACEncoder;
 import com.skopincev.videochangingdemoapp.media_processing.AudioExtractor;
 import com.skopincev.videochangingdemoapp.media_processing.MediaMerger;
+import com.skopincev.videochangingdemoapp.media_processing.MediaUtils;
 import com.skopincev.videochangingdemoapp.media_processing.OnPlaybackStateChangeListener;
 import com.skopincev.videochangingdemoapp.media_processing.OnResultListener;
 
@@ -386,7 +387,7 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
         }
     }
 
-    private void saveVideo(final String videoFilePath, String audioFilePath, final String resultFilePath){
+    private void saveVideo(final String videoFilePath, final String audioFilePath, final String resultFilePath){
         if (!isNoEffects()) {
             //Set saving mode
             setSavingMode(true);
@@ -412,6 +413,19 @@ public class MainActivity extends AppCompatActivity implements OnPlaybackStateCh
 
                         //Put video into Gallery
                         addVideoToGallery(new File(resultFilePath));
+
+                        Log.d(TAG, String.format("Extracted audio bitRate: %d, sampleRate: %d, durationMs: %.2f",
+                                MediaUtils.getAudioFileBitRate(audioFilePath),
+                                MediaUtils.getAudioFileSampleRate(audioFilePath),
+                                MediaUtils.getAudioFileDurationMs(audioFilePath)));
+                        Log.d(TAG, String.format("Time stretched audio bitRate: %d, sampleRate: %d, durationMs: %.2f",
+                                MediaUtils.getAudioFileBitRate(resultAudioFilePath_Wave),
+                                MediaUtils.getAudioFileSampleRate(resultAudioFilePath_Wave),
+                                MediaUtils.getAudioFileDurationMs(resultAudioFilePath_Wave)));
+                        Log.d(TAG, String.format("Encoded audio bitRate: %d, sampleRate: %d, durationMs: %.2f",
+                                MediaUtils.getAudioFileBitRate(resultAudioFilePath),
+                                MediaUtils.getAudioFileSampleRate(resultAudioFilePath),
+                                MediaUtils.getAudioFileDurationMs(resultAudioFilePath)));
 
                         runOnUiThread(new Runnable() {
                             @Override
