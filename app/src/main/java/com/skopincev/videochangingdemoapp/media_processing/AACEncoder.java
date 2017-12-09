@@ -73,7 +73,7 @@ public class AACEncoder {
     }
 
     private static final String COMPRESSED_AUDIO_FILE_MIME_TYPE = "audio/mp4a-latm";
-    private static final int COMPRESSED_AUDIO_FILE_BIT_RATE = 320000; // 320kbps
+    private static final int COMPRESSED_AUDIO_FILE_BIT_RATE = 128000;
     private static final int BUFFER_SIZE = 48000;
     private static final int CODEC_TIMEOUT_IN_MS = 5000;
 
@@ -86,6 +86,8 @@ public class AACEncoder {
                 try {
                     File inputFile = new File(inputFilePath);
                     FileInputStream fis = new FileInputStream(inputFile);
+                    //Skip WAV headers
+                    fis.skip(44);
 
                     File outputFile = new File(outputFilePath);
                     if (outputFile.exists()) outputFile.delete();
